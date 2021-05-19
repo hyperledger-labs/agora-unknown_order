@@ -6,6 +6,10 @@ I've seen this commonly across multiple projects where they need a multiprecisio
 and use one of three libraries: [Gnu MP BigNum Library](https://gmplib.org/), [OpenSSL's BigNum Library](https://www.openssl.org/docs/man1.0.2/man3/bn.html)
 and [Rust's BigInt Library](https://crates.io/crates/num-bigint), depending on the needs and requirements (licensing, performance, platform target, constant time).
 
+To use OpenSSL's BigNum library, you must have libcrypto and libssl in your path.
+
+To use Gnu MP BigNum library, you must have libgmp in your path.
+
 This library wraps them all into a common API, so they can be used interchangeably.
 
 Groups of unknown order require using a modulus that is the composite of two big prime numbers. This
