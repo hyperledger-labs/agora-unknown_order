@@ -4,7 +4,7 @@ Crate for handling groups of unknown order.
 
 I've seen this commonly across multiple projects where they need a multiprecision library
 and use one of three libraries: [Gnu MP BigNum Library](https://gmplib.org/), [OpenSSL's BigNum Library](https://www.openssl.org/docs/man1.0.2/man3/bn.html)
-and [Rust's BigInt Library](https://crates.io/crates/num-bigint), depending on the needs and requirements (licensing, performance, platform target).
+and [Rust's BigInt Library](https://crates.io/crates/num-bigint), depending on the needs and requirements (licensing, performance, platform target, constant time).
 
 This library wraps them all into a common API, so they can be used interchangeably.
 
@@ -16,12 +16,21 @@ The modulus is not known at compile time which excludes using certain traits lik
 unfortunately, the caller needs to remember to use methods prefixed with `mod` to achieve the desired results.
 
 This library can only have one implementation active at a time. Mixing between implementations isn't necessarily a
-problem as much as injecting lots of dependencies and mixing licenses which is not a good idea.
+problem as much as injecting lots of dependencies and mixing licenses which is not a good idea. 
+This also forces the user to understand what tradeoffs they are making when they select a specific implementation.
+For example, some implementations may not be constant time versus others which is important when used for cryptographic purposes.
 
 ## Examples
 
 ```rust
 use unknown_order::BigNumber;
 
-
+fn main() {
+    // Create a safe group of unknown order
+    let p = BigNumber::safe_prime(1024);
+    let q = BigNumber::safe_prime(1024);
+    let n = p.clone() * q.clone();
+    let e = 65537;
+    let totient = (p.clone() - BigNumber::)
+}
 ```

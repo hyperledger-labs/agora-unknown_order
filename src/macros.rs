@@ -15,12 +15,35 @@ macro_rules! binops_impl {
             }
         }
 
-        ops_impl!($ops, $func, $ops_assign, $func_assign, $opr);
+        ops_impl!($ops, $func, $ops_assign, $func_assign, $opr, $opr_assign);
     };
 }
 
 macro_rules! ops_impl {
-    ($ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:tt) => {
+    (@ref $ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:tt, $opr_assign:tt, $($rhs:ty),+) => {$(
+        impl<'a> $ops<$rhs> for &'a Bn {
+            type Output = Bn;
+
+            fn $func(self, rhs: $rhs) -> Self::Output {
+                self $opr Bn::from(rhs)
+            }
+        }
+
+        impl $ops<$rhs> for Bn {
+            type Output = Bn;
+
+            fn $func(self, rhs: $rhs) -> Self::Output {
+                self $opr Bn::from(rhs)
+            }
+        }
+
+        impl $ops_assign<$rhs> for Bn {
+            fn $func_assign(&mut self, rhs: $rhs) {
+                *self = &*self $opr &Bn::from(rhs);
+            }
+        }
+    )*};
+    ($ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:tt, $opr_assign:tt) => {
         impl<'b> $ops<&'b Bn> for Bn {
             type Output = Bn;
 
@@ -50,6 +73,9 @@ macro_rules! ops_impl {
                 *self = &*self $opr &rhs;
             }
         }
+
+        ops_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, $opr_assign, u8, u16, u32, u64, usize);
+        ops_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, $opr_assign, i8, i16, i32, i64, isize);
     };
 }
 
@@ -214,9 +240,9 @@ macro_rules! ord_impl {
 }
 
 macro_rules! from_impl {
-    ($opr:expr) => {
-        impl From<usize> for Bn {
-            fn from(d: usize) -> Self {
+    ($opr:expr, $rhs:ty) => {
+        impl From<$rhs> for Bn {
+            fn from(d: $rhs) -> Self {
                 Self($opr(d))
             }
         }

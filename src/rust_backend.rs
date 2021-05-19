@@ -29,7 +29,16 @@ clone_impl!(|b: &Bn| b.0.clone());
 default_impl!(|| BigInt::default());
 display_impl!();
 eq_impl!();
-from_impl!(|d: usize| BigInt::from(d));
+from_impl!(|d: usize| BigInt::from(d), usize);
+from_impl!(|d: u64| BigInt::from(d), u64);
+from_impl!(|d: u32| BigInt::from(d), u32);
+from_impl!(|d: u16| BigInt::from(d), u16);
+from_impl!(|d: u8| BigInt::from(d), u8);
+from_impl!(|d: isize| BigInt::from(d), isize);
+from_impl!(|d: i64| BigInt::from(d), i64);
+from_impl!(|d: i32| BigInt::from(d), i32);
+from_impl!(|d: i16| BigInt::from(d), i16);
+from_impl!(|d: i8| BigInt::from(d), i8);
 ord_impl!();
 serdes_impl!(|b: &Bn| b.0.to_str_radix(16), |s: &str| {
     BigInt::from_str_radix(s, 16)

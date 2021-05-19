@@ -21,11 +21,28 @@ use zeroize::Zeroize;
 /// Big number
 pub struct Bn(pub(crate) Mpz);
 
+fn from_isize(d: isize) -> Mpz {
+    if d < 0 {
+        -Mpz::from(-d as u64)
+    } else {
+        Mpz::from(d as u64)
+    }
+}
+
 clone_impl!(|b: &Bn| b.0.clone());
 default_impl!(|| Mpz::new());
 display_impl!();
 eq_impl!();
-from_impl!(|d: usize| Mpz::from(d as u64));
+from_impl!(|d: usize| Mpz::from(d as u64), usize);
+from_impl!(|d: u64| Mpz::from(d), u64);
+from_impl!(|d: u32| Mpz::from(d as u64), u32);
+from_impl!(|d: u16| Mpz::from(d as u64), u16);
+from_impl!(|d: u8| Mpz::from(d as u64), u8);
+from_impl!(from_isize, isize);
+from_impl!(|d: i64| from_isize(d as isize), i64);
+from_impl!(|d: i32| from_isize(d as isize), i32);
+from_impl!(|d: i16| from_isize(d as isize), i16);
+from_impl!(|d: i8| from_isize(d as isize), i8);
 ord_impl!();
 serdes_impl!(
     |b: &Bn| b.0.to_str_radix(16),

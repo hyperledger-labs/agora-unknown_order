@@ -18,6 +18,16 @@ use zeroize::Zeroize;
 /// Big number
 pub struct Bn(pub(crate) BigNum);
 
+fn from_isize(d: isize) -> BigNum {
+    if d < 0 {
+        let mut b = BigNum::from_slice(&(-d).to_be_bytes()).unwrap();
+        b.set_negative(true);
+        b
+    } else {
+        BigNum::from_slice(&d.to_be_bytes()).unwrap()
+    }
+}
+
 clone_impl!(|b: &Bn| {
     let mut t = BigNum::from_slice(&b.0.to_vec()).unwrap();
     t.set_negative(b.0.is_negative());
@@ -26,7 +36,19 @@ clone_impl!(|b: &Bn| {
 default_impl!(|| BigNum::new().unwrap());
 display_impl!();
 eq_impl!();
-from_impl!(|d: usize| BigNum::from_slice(&d.to_be_bytes()).unwrap());
+from_impl!(
+    |d: usize| BigNum::from_slice(&d.to_be_bytes()).unwrap(),
+    usize
+);
+from_impl!(|d: u64| BigNum::from_slice(&d.to_be_bytes()).unwrap(), u64);
+from_impl!(|d: u32| BigNum::from_u32(d).unwrap(), u32);
+from_impl!(|d: u16| BigNum::from_u32(d as u32).unwrap(), u16);
+from_impl!(|d: u8| BigNum::from_u32(d as u32).unwrap(), u8);
+from_impl!(from_isize, isize);
+from_impl!(|d: i64| from_isize(d as isize), i64);
+from_impl!(|d: i32| from_isize(d as isize), i32);
+from_impl!(|d: i16| from_isize(d as isize), i16);
+from_impl!(|d: i8| from_isize(d as isize), i8);
 ord_impl!();
 serdes_impl!(|b: &Bn| b.0.to_hex_str().unwrap(), |s: &str| {
     BigNum::from_hex_str(s)
@@ -124,11 +146,11 @@ impl<'b> RemAssign<&'b Bn> for Bn {
     }
 }
 
-ops_impl!(Add, add, AddAssign, add_assign, +);
-ops_impl!(Sub, sub, SubAssign, sub_assign, -);
-ops_impl!(Mul, mul, MulAssign, mul_assign, *);
-ops_impl!(Div, div, DivAssign, div_assign, /);
-ops_impl!(Rem, rem, RemAssign, rem_assign, %);
+ops_impl!(Add, add, AddAssign, add_assign, +, +=);
+ops_impl!(Sub, sub, SubAssign, sub_assign, -, -=);
+ops_impl!(Mul, mul, MulAssign, mul_assign, *, *=);
+ops_impl!(Div, div, DivAssign, div_assign, /, /=);
+ops_impl!(Rem, rem, RemAssign, rem_assign, %, %=);
 neg_impl!(|b: &BigNum| {
     let mut n = BigNum::from_slice(b.to_vec().as_slice()).unwrap();
     n.set_negative(!b.is_negative());

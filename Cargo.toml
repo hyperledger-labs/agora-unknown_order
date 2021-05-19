@@ -6,6 +6,7 @@ typtical for RSA, Paillier, Hyperelliptic curves, etc.
 """
 documentation = "https://docs.rs/unknown_order"
 edition = "2018"
+keywords = ["cryptography", "rsa", "bignumber"]
 license = "Apache-2.0"
 name = "unknown_order"
 readme = "README.md"
@@ -13,7 +14,7 @@ repository = "https://github.com/mikelodder7/unknown_order"
 version = "0.1.0"
 
 [features]
-default = ["rust"]
+default = ["openssl"]
 gmp = ["hex", "rand", "rust-gmp"]
 rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits", "rand"]
 
