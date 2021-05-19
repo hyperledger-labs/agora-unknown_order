@@ -1,4 +1,4 @@
-# unknown_order [![Crates.io]((https://img.shields.io/crates/v/bls12_381_plus.svg)](https://crates.io/crates/unknown_order))]
+# unknown_order ![Crates.io]((https://img.shields.io/crates/v/unknown_order.svg)](https://crates.io/crates/unknown_order)) ![License-Image](https://img.shields.io/badge/License-Apache%202.0-green.svg)
 
 Crate for handling groups of unknown order.
 
@@ -30,7 +30,18 @@ fn main() {
     let p = BigNumber::safe_prime(1024);
     let q = BigNumber::safe_prime(1024);
     let n = p.clone() * q.clone();
-    let e = 65537;
-    let totient = (p.clone() - BigNumber::)
+    
+    // Simulate RSA algorithm, DO NOT USE totally insecure
+    
+    // Public key
+    let e = BigNumber::from(65537);
+    
+    // throw away when done
+    let totient = (p.clone() - 1) * (q.clone() - 1);
+    
+    // Secret key
+    let d = e.invert(&totient).unwrap();
+    
+    
 }
 ```
