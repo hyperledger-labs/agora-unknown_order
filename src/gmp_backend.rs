@@ -204,7 +204,10 @@ impl Bn {
 
     /// Convert this big number to a big-endian byte sequence
     pub fn to_bytes(&self) -> Vec<u8> {
-        let s = self.0.to_str_radix(16);
+        let mut s = self.0.to_str_radix(16);
+        if s.len() & 1 == 1 {
+            s = format!("0{}", s);
+        }
         hex::decode(&s).unwrap()
     }
 

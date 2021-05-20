@@ -177,3 +177,10 @@ fn gcd_ext() {
     let res = a.extended_gcd(&b);
     assert_eq!(res.gcd, BigNumber::one());
 }
+
+#[test]
+fn bytes() {
+    let m = BigNumber::from(7);
+    let s = m.to_bytes();
+    assert_eq!(m, BigNumber::from_slice(&s));
+}
