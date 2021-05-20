@@ -12,7 +12,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
-    cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
+    cmp::{Eq, Ord, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
     iter::{Product, Sum},
     mem::swap,
@@ -24,6 +24,7 @@ use std::{
 use zeroize::Zeroize;
 
 /// Big number
+#[derive(Ord, PartialOrd)]
 pub struct Bn(pub(crate) BigInt);
 
 clone_impl!(|b: &Bn| b.0.clone());
@@ -41,7 +42,6 @@ from_impl!(|d: i32| BigInt::from(d), i32);
 from_impl!(|d: i16| BigInt::from(d), i16);
 from_impl!(|d: i8| BigInt::from(d), i8);
 iter_impl!();
-ord_impl!();
 serdes_impl!(|b: &Bn| b.0.to_str_radix(16), |s: &str| {
     BigInt::from_str_radix(s, 16)
 });

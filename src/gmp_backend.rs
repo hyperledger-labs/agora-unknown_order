@@ -9,7 +9,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
-    cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
+    cmp::{Eq, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
     iter::{Product, Sum},
     ops::{
@@ -20,6 +20,7 @@ use std::{
 use zeroize::Zeroize;
 
 /// Big number
+#[derive(Ord, PartialOrd)]
 pub struct Bn(pub(crate) Mpz);
 
 fn from_isize(d: isize) -> Mpz {
@@ -45,7 +46,6 @@ from_impl!(|d: i32| from_isize(d as isize), i32);
 from_impl!(|d: i16| from_isize(d as isize), i16);
 from_impl!(|d: i8| from_isize(d as isize), i8);
 iter_impl!();
-ord_impl!();
 serdes_impl!(
     |b: &Bn| b.0.to_str_radix(16),
     |s: &str| Mpz::from_str_radix(s, 16)

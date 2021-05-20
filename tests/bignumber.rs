@@ -169,3 +169,11 @@ fn safe_prime() {
     let ptick: BigNumber = p >> 1;
     assert!(ptick.is_prime());
 }
+
+#[test]
+fn gcd_ext() {
+    let a = BigNumber::from(13);
+    let b = BigNumber::from(17);
+    let res = a.extended_gcd(&b);
+    assert_eq!(res.gcd, BigNumber::one());
+}

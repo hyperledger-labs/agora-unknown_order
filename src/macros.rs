@@ -223,22 +223,6 @@ macro_rules! eq_impl {
     };
 }
 
-macro_rules! ord_impl {
-    () => {
-        impl Ord for Bn {
-            fn cmp(&self, other: &Self) -> Ordering {
-                self.0.cmp(&other.0)
-            }
-        }
-
-        impl PartialOrd for Bn {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                self.0.partial_cmp(&other.0)
-            }
-        }
-    };
-}
-
 macro_rules! from_impl {
     ($opr:expr, $rhs:ty) => {
         impl From<$rhs> for Bn {
