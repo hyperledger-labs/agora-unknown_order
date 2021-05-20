@@ -248,3 +248,26 @@ macro_rules! from_impl {
         }
     };
 }
+
+macro_rules! iter_impl {
+    () => {
+        impl Sum for Bn {
+            fn sum<I: Iterator<Item = Bn>>(mut iter: I) -> Self {
+                let mut b = Bn::zero();
+                while let Some(i) = iter.next() {
+                    b += i;
+                }
+                b
+            }
+        }
+        impl Product for Bn {
+            fn product<I: Iterator<Item = Bn>>(mut iter: I) -> Self {
+                let mut b = Bn::one();
+                while let Some(i) = iter.next() {
+                    b *= i;
+                }
+                b
+            }
+        }
+    };
+}

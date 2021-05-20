@@ -1,4 +1,4 @@
-use crate::GcdResult;
+use crate::{get_mod, GcdResult};
 use gmp::{
     mpz::{Mpz, ProbabPrimeResult},
     rand::RandState,
@@ -11,6 +11,7 @@ use serde::{
 use std::{
     cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
+    iter::{Product, Sum},
     ops::{
         Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Shl, Shr, Sub,
         SubAssign,
@@ -43,6 +44,7 @@ from_impl!(|d: i64| from_isize(d as isize), i64);
 from_impl!(|d: i32| from_isize(d as isize), i32);
 from_impl!(|d: i16| from_isize(d as isize), i16);
 from_impl!(|d: i8| from_isize(d as isize), i8);
+iter_impl!();
 ord_impl!();
 serdes_impl!(
     |b: &Bn| b.0.to_str_radix(16),
@@ -63,7 +65,7 @@ impl Bn {
     /// Returns `(self ^ exponent) mod n`
     /// Note that this rounds down
     /// which makes a difference when given a negative `self` or `n`.
-    /// The result will be in the interval `[0, n)` for `modulus > 0`,
+    /// The result will be in the interval `[0, n)` for `n > 0`
     pub fn modpow(&self, exponent: &Self, n: &Self) -> Self {
         assert_ne!(n.0, Mpz::zero());
         if exponent.0 < Mpz::new() {
@@ -81,37 +83,54 @@ impl Bn {
 
     /// Compute (self + rhs) mod n
     pub fn modadd(&self, rhs: &Self, n: &Self) -> Self {
-        let mut t = (self + rhs) % n;
+        let nn = get_mod(n);
+        let mut t = (self + rhs) % &nn;
         if t < Bn::zero() {
-            t += n;
+            t += &nn;
         }
         t
     }
 
     /// Compute (self - rhs) mod n
     pub fn modsub(&self, rhs: &Self, n: &Self) -> Self {
-        let mut t = (self - rhs) % n;
+        let nn = get_mod(n);
+        let mut t = (self - rhs) % &nn;
         if t < Bn::zero() {
-            t += n;
+            t += &nn;
         }
         t
     }
 
     /// Compute (self * rhs) mod n
     pub fn modmul(&self, rhs: &Self, n: &Self) -> Self {
-        let mut t = (self * rhs) % n;
+        let nn = get_mod(n);
+        let mut t = (self * rhs) % &nn;
         if t < Bn::zero() {
-            t += n;
+            t += &nn;
         }
         t
     }
 
     /// Compute (self * 1/rhs) mod n
     pub fn moddiv(&self, rhs: &Self, n: &Self) -> Self {
-        let mut t = (self * rhs.invert(n).unwrap()) % n;
-        if t < Bn::zero() {
-            t += n;
+        let nn = get_mod(n);
+        match rhs.invert(&nn) {
+            None => Self::zero(),
+            Some(r) => {
+                let mut t = (self * r) % &nn;
+                if t < Bn::zero() {
+                    t += &nn;
+                }
+                t
+            }
         }
+    }
+
+    /// Compute -self mod n
+    pub fn modneg(&self, n: &Self) -> Self {
+        let mut t = self.clone() % n.clone();
+        t = n.clone() - t.clone();
+        t %= n.clone();
         t
     }
 
@@ -199,7 +218,7 @@ impl Bn {
         }
     }
 
-    /// Generate a safe prime
+    /// Generate a safe prime with `size` bits
     pub fn safe_prime(size: usize) -> Self {
         let mut rand_state = RandState::new();
         let mut p = rand_state.urandom_2exp(size as u64).nextprime();
@@ -215,13 +234,13 @@ impl Bn {
         }
     }
 
-    /// Generate a prime
+    /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
         let mut rand_state = RandState::new();
         Self(rand_state.urandom_2exp(size as u64).nextprime())
     }
 
-    /// True if self is a prime number
+    /// True if a prime number
     pub fn is_prime(&self) -> bool {
         match self.0.probab_prime(15) {
             ProbabPrimeResult::Prime | ProbabPrimeResult::ProbablyPrime => true,

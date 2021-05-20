@@ -7,6 +7,7 @@ use serde::{
 use std::{
     cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
+    iter::{Product, Sum},
     mem::swap,
     ops::{
         Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Shl, Shr, Sub,
@@ -49,6 +50,7 @@ from_impl!(|d: i64| from_isize(d as isize), i64);
 from_impl!(|d: i32| from_isize(d as isize), i32);
 from_impl!(|d: i16| from_isize(d as isize), i16);
 from_impl!(|d: i8| from_isize(d as isize), i8);
+iter_impl!();
 ord_impl!();
 serdes_impl!(|b: &Bn| b.0.to_hex_str().unwrap(), |s: &str| {
     BigNum::from_hex_str(s)
@@ -179,7 +181,7 @@ impl Bn {
     /// Returns `(self ^ exponent) mod n`
     /// Note that this rounds down
     /// which makes a difference when given a negative `self` or `n`.
-    /// The result will be in the interval `[0, n)` for `n > 0`,
+    /// The result will be in the interval `[0, n)` for `n > 0`
     pub fn modpow(&self, exponent: &Self, n: &Self) -> Self {
         let mut ctx = BigNumContext::new().unwrap();
         let mut bn = BigNum::new().unwrap();
@@ -229,6 +231,14 @@ impl Bn {
         BigNumRef::mod_inverse(&mut s, &rhs.0, &n.0, &mut ctx).unwrap();
         BigNumRef::mod_mul(&mut t, &self.0, &s, &n.0, &mut ctx).unwrap();
         Bn(t)
+    }
+
+    /// Compute -self mod n
+    pub fn modneg(&self, n: &Self) -> Self {
+        let mut t = self.clone() % n.clone();
+        t = n.clone() - t.clone();
+        t %= n.clone();
+        t
     }
 
     /// Computes the multiplicative inverse of this element, failing if the element is zero.
@@ -341,21 +351,21 @@ impl Bn {
         }
     }
 
-    /// Generate a safe prime
+    /// Generate a safe prime with `size` bits
     pub fn safe_prime(size: usize) -> Self {
         let mut p = BigNum::new().unwrap();
         BigNumRef::generate_prime(&mut p, size as i32, true, None, None).unwrap();
         Self(p)
     }
 
-    /// Generate a prime
+    /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
         let mut p = BigNum::new().unwrap();
         BigNumRef::generate_prime(&mut p, size as i32, false, None, None).unwrap();
         Self(p)
     }
 
-    /// True if self is a prime number
+    /// True if a prime number
     pub fn is_prime(&self) -> bool {
         let mut ctx = BigNumContext::new().unwrap();
         BigNumRef::is_prime(&self.0, 15, &mut ctx).unwrap()

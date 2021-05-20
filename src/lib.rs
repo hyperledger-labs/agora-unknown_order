@@ -21,9 +21,14 @@
 #![deny(
     missing_docs,
     trivial_casts,
+    unconditional_recursion,
     unsafe_code,
     unused_import_braces,
+    unused_lifetimes,
     unused_qualifications,
+    unused_extern_crates,
+    unused_parens,
+    while_true,
     warnings
 )]
 
@@ -52,6 +57,17 @@ use openssl_backend as b;
 use rust_backend as b;
 
 mod gcd_result;
+mod group;
+
+#[cfg(any(feature = "rust", feature = "gmp"))]
+pub(crate) fn get_mod(n: &BigNumber) -> BigNumber {
+    if n < &BigNumber::zero() {
+        -n.clone()
+    } else {
+        n.clone()
+    }
+}
 
 pub use b::Bn as BigNumber;
 pub use gcd_result::*;
+pub use group::*;
