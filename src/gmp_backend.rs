@@ -224,15 +224,14 @@ impl Bn {
     /// Generate a safe prime with `size` bits
     pub fn safe_prime(size: usize) -> Self {
         let mut rand_state = RandState::new();
-        let mut p = rand_state.urandom_2exp(size as u64).nextprime();
+        let mut p = (rand_state.urandom_2exp((size - 1) as u64).nextprime() << 1) + 1;
         loop {
             while p.bit_length() != size {
-                p = rand_state.urandom_2exp(size as u64).nextprime();
+                p = (rand_state.urandom_2exp((size - 1) as u64).nextprime() << 1) + 1;
             }
-            let p_tick = &p >> 1;
-            match p_tick.probab_prime(15) {
+            match p.probab_prime(15) {
                 ProbabPrimeResult::Prime | ProbabPrimeResult::ProbablyPrime => return Self(p),
-                _ => p = rand_state.urandom_2exp(size as u64).nextprime(),
+                _ => p = (rand_state.urandom_2exp((size - 1) as u64).nextprime() << 1) + 1,
             };
         }
     }
@@ -240,7 +239,11 @@ impl Bn {
     /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
         let mut rand_state = RandState::new();
-        Self(rand_state.urandom_2exp(size as u64).nextprime())
+        let mut p = rand_state.urandom_2exp(size as u64).nextprime();
+        while p.bit_length() != size {
+            p = rand_state.urandom_2exp(size as u64).nextprime();
+        }
+        Self(p)
     }
 
     /// True if a prime number
@@ -250,4 +253,13 @@ impl Bn {
             _ => false,
         }
     }
+}
+
+#[test]
+fn safe_prime() {
+    let n = Bn::safe_prime(1024);
+    assert_eq!(n.0.bit_length(), 1024);
+    assert!(n.is_prime());
+    let sg: Bn = n >> 1;
+    assert!(sg.is_prime())
 }

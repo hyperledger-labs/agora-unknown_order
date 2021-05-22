@@ -371,3 +371,12 @@ impl Bn {
         BigNumRef::is_prime(&self.0, 15, &mut ctx).unwrap()
     }
 }
+
+#[test]
+fn safe_prime() {
+    let n = Bn::safe_prime(1024);
+    assert_eq!(n.0.num_bits(), 1024);
+    assert!(n.is_prime());
+    let sg: Bn = n >> 1;
+    assert!(sg.is_prime())
+}

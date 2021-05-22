@@ -14,10 +14,10 @@ license = "Apache-2.0"
 name = "unknown_order"
 readme = "README.md"
 repository = "https://github.com/mikelodder7/unknown_order"
-version = "0.1.2"
+version = "0.1.3"
 
 [features]
-default = ["gmp"]
+default = ["rust"]
 gmp = ["hex", "rand", "rust-gmp"]
 rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits", "rand"]
 
