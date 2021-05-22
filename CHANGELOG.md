@@ -5,6 +5,12 @@ All notable changes to this crate will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### v0.1.4
+
+### Fixes
+
+- gmp_backend prime generation was reusing seeds and generating the same prime numbers with consecutive calls
+
 ### v0.1.3
 
 ### Fixes

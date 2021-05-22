@@ -224,6 +224,9 @@ impl Bn {
     /// Generate a safe prime with `size` bits
     pub fn safe_prime(size: usize) -> Self {
         let mut rand_state = RandState::new();
+        let mut seed = [0u8; 32];
+        rand::rngs::OsRng::default().fill_bytes(&mut seed);
+        rand_state.seed(Mpz::from(&seed[..]));
         let mut p = (rand_state.urandom_2exp((size - 1) as u64).nextprime() << 1) + 1;
         loop {
             while p.bit_length() != size {
@@ -239,6 +242,9 @@ impl Bn {
     /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
         let mut rand_state = RandState::new();
+        let mut seed = [0u8; 32];
+        rand::rngs::OsRng::default().fill_bytes(&mut seed);
+        rand_state.seed(Mpz::from(&seed[..]));
         let mut p = rand_state.urandom_2exp(size as u64).nextprime();
         while p.bit_length() != size {
             p = rand_state.urandom_2exp(size as u64).nextprime();
@@ -260,6 +266,13 @@ fn safe_prime() {
     let n = Bn::safe_prime(1024);
     assert_eq!(n.0.bit_length(), 1024);
     assert!(n.is_prime());
-    let sg: Bn = n >> 1;
-    assert!(sg.is_prime())
+    let sg: Bn = &n >> 1;
+    assert!(sg.is_prime());
+    // Make sure it doesn't produce the same prime when called twice
+    let m = Bn::safe_prime(1024);
+    assert_eq!(m.0.bit_length(), 1024);
+    assert!(m.is_prime());
+    let sg: Bn = &m >> 1;
+    assert!(sg.is_prime());
+    assert_ne!(n, m);
 }
