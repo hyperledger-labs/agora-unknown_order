@@ -1,3 +1,7 @@
+/*
+    Copyright Michael Lodder. All Rights Reserved.
+    SPDX-License-Identifier: Apache-2.0
+*/
 use crate::{get_mod, GcdResult};
 use glass_pumpkin::{prime, safe_prime};
 use num_bigint::{BigInt, Sign, ToBigInt};
@@ -54,6 +58,8 @@ binops_impl!(Rem, rem, RemAssign, rem_assign, %, %=);
 neg_impl!(|b: &BigInt| Bn(-b));
 shift_impl!(Shl, shl, |lhs, rhs| Bn(lhs << rhs));
 shift_impl!(Shr, shr, |lhs, rhs| Bn(lhs >> rhs));
+#[cfg(feature = "wasm")]
+wasm_slice_impl!(Bn);
 
 impl Bn {
     /// Returns `(self ^ exponent) mod n`

@@ -1,3 +1,7 @@
+/*
+    Copyright Michael Lodder. All Rights Reserved.
+    SPDX-License-Identifier: Apache-2.0
+*/
 use crate::BigNumber;
 
 /// GcdResult encapsulates the gcd result and the Bézout coefficients

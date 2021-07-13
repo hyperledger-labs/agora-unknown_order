@@ -1,3 +1,7 @@
+/*
+    Copyright Michael Lodder. All Rights Reserved.
+    SPDX-License-Identifier: Apache-2.0
+*/
 use crate::GcdResult;
 use openssl::bn::{BigNum, BigNumContext, BigNumRef};
 use serde::{

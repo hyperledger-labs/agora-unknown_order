@@ -22,7 +22,6 @@
     missing_docs,
     trivial_casts,
     unconditional_recursion,
-    unsafe_code,
     unused_import_braces,
     unused_lifetimes,
     unused_qualifications,
