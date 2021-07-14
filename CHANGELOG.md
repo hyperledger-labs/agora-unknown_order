@@ -5,6 +5,20 @@ All notable changes to this crate will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### v0.2.1
+
+### Added
+- div_rem 
+  
+### Fixes 
+
+- gmp_backend compile issues with rand
+
+### v0.2.0
+
+- Add WASM
+- Update dependencies
+
 ### v0.1.4
 
 ### Fixes

@@ -252,6 +252,7 @@ impl Bn {
     }
 
     /// Compute the extended euclid algorithm and return the Bézout coefficients and GCD
+    #[allow(clippy::many_single_char_names)]
     pub fn extended_gcd(&self, other: &Self) -> GcdResult {
         let mut s = (Self::zero(), Self::one());
         let mut t = (Self::one(), Self::zero());
@@ -302,6 +303,12 @@ impl Bn {
             None => false,
             Some(b) => prime::strong_check(&b),
         }
+    }
+
+    /// Simultaneous integer division and modulus
+    pub fn div_rem(&self, other: &Self) -> (Self, Self) {
+        let (d, r) = self.0.div_rem(&other.0);
+        (Self(d), Self(r))
     }
 }
 

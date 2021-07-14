@@ -263,6 +263,70 @@ impl Bn {
             _ => false,
         }
     }
+
+    /// Simultaneous integer division and modulus
+    pub fn div_rem(&self, other: &Self) -> (Self, Self) {
+        let (q, r) = _div_rem(&self.0, &other.0);
+        (Self(q), Self(r))
+    }
+}
+
+#[repr(C)]
+pub struct MpzStruct {
+    _mp_alloc: std::os::raw::c_int,
+    _mp_size: std::os::raw::c_int,
+    _mp_d: *mut std::os::raw::c_void,
+}
+pub type MpzSrcptr = *const MpzStruct;
+pub type MpzPtr = *mut MpzStruct;
+
+#[link(name = "gmp")]
+extern "C" {
+    fn __gmpz_init(x: MpzPtr);
+    fn __gmpz_tdiv_qr(q: MpzPtr, r: MpzPtr, n: MpzSrcptr, d: MpzSrcptr);
+    fn __gmpz_clear(x: MpzPtr);
+}
+
+pub struct MpzMpz {
+    mpz: MpzStruct,
+}
+
+unsafe impl Send for MpzMpz {}
+unsafe impl Sync for MpzMpz {}
+
+impl Drop for MpzMpz {
+    fn drop(&mut self) {
+        unsafe { __gmpz_clear(&mut self.mpz) }
+    }
+}
+
+impl Default for MpzMpz {
+    fn default() -> MpzMpz {
+        unsafe {
+            let mut mpz = std::mem::MaybeUninit::uninit().assume_init();
+            __gmpz_init(&mut mpz);
+            MpzMpz { mpz }
+        }
+    }
+}
+
+fn _div_rem(lhs: &Mpz, rhs: &Mpz) -> (Mpz, Mpz) {
+    unsafe {
+        if rhs.is_zero() {
+            panic!("divide by zero");
+        }
+
+        let tv1: MpzMpz = std::mem::transmute(lhs.clone());
+        let tv2: MpzMpz = std::mem::transmute(rhs.clone());
+
+        let mut q_res = MpzMpz::default();
+        let mut r_res = MpzMpz::default();
+        __gmpz_tdiv_qr(&mut q_res.mpz, &mut r_res.mpz, &tv1.mpz, &tv2.mpz);
+
+        let q = std::mem::transmute(q_res);
+        let r = std::mem::transmute(r_res);
+        (q, r)
+    }
 }
 
 #[test]
@@ -279,4 +343,19 @@ fn safe_prime() {
     let sg: Bn = &m >> 1;
     assert!(sg.is_prime());
     assert_ne!(n, m);
+}
+
+#[test]
+fn div_rem_test() {
+    let a = Bn::from(11);
+    let b = Bn::from(3);
+    let (q, r) = a.div_rem(&b);
+    assert_eq!(q, Bn::from(3));
+    assert_eq!(r, Bn::from(2));
+
+    let a = Bn::from(23);
+    let b = Bn::from(10);
+    let (q, r) = a.div_rem(&b);
+    assert_eq!(q, Bn::from(2));
+    assert_eq!(r, Bn::from(3));
 }

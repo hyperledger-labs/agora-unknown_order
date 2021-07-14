@@ -374,6 +374,15 @@ impl Bn {
         let mut ctx = BigNumContext::new().unwrap();
         BigNumRef::is_prime(&self.0, 15, &mut ctx).unwrap()
     }
+
+    /// Simultaneous integer division and modulus
+    pub fn div_rem(&self, other: &Self) -> (Self, Self) {
+        let mut ctx = BigNumContext::new().unwrap();
+        let mut div = BigNum::new().unwrap();
+        let mut rem = BigNum::new().unwrap();
+        BigNumRef::div_rem(&mut div, &mut rem, &self.0, &other.0, &mut ctx).unwrap();
+        (Self(div), Self(rem))
+    }
 }
 
 #[test]
