@@ -46,6 +46,24 @@ from_impl!(
     |d: usize| BigNum::from_slice(&d.to_be_bytes()).unwrap(),
     usize
 );
+#[cfg(target_pointer_width = "64")]
+from_impl!(
+    |d: i128| {
+        if d < 0 {
+            let mut b = BigNum::from_slice(&(-d).to_be_bytes()).unwrap();
+            b.set_negative(true);
+            b
+        } else {
+            BigNum::from_slice(&d.to_be_bytes()).unwrap()
+        }
+    },
+    i128
+);
+#[cfg(target_pointer_width = "64")]
+from_impl!(
+    |d: u128| BigNum::from_slice(&d.to_be_bytes()).unwrap(),
+    u128
+);
 from_impl!(|d: u64| BigNum::from_slice(&d.to_be_bytes()).unwrap(), u64);
 from_impl!(|d: u32| BigNum::from_u32(d).unwrap(), u32);
 from_impl!(|d: u16| BigNum::from_u32(d as u32).unwrap(), u16);

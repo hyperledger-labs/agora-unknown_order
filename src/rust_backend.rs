@@ -35,6 +35,10 @@ clone_impl!(|b: &Bn| b.0.clone());
 default_impl!(|| BigInt::default());
 display_impl!();
 eq_impl!();
+#[cfg(target_pointer_width = "64")]
+from_impl!(|d: i128| BigInt::from(d), i128);
+#[cfg(target_pointer_width = "64")]
+from_impl!(|d: u128| BigInt::from(d), u128);
 from_impl!(|d: usize| BigInt::from(d), usize);
 from_impl!(|d: u64| BigInt::from(d), u64);
 from_impl!(|d: u32| BigInt::from(d), u32);

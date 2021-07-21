@@ -39,6 +39,19 @@ clone_impl!(|b: &Bn| b.0.clone());
 default_impl!(|| Mpz::new());
 display_impl!();
 eq_impl!();
+#[cfg(target_pointer_width = "64")]
+from_impl!(
+    |d: i128| {
+        if d < 0 {
+            -Mpz::from(&(-d).to_be_bytes()[..])
+        } else {
+            Mpz::from(&d.to_be_bytes()[..])
+        }
+    },
+    i128
+);
+#[cfg(target_pointer_width = "64")]
+from_impl!(|d: u128| { Mpz::from(&d.to_be_bytes()[..]) }, u128);
 from_impl!(|d: usize| Mpz::from(d as u64), usize);
 from_impl!(|d: u64| Mpz::from(d), u64);
 from_impl!(|d: u32| Mpz::from(d as u64), u32);

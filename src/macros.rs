@@ -140,6 +140,46 @@ macro_rules! display_impl {
                 write!(f, "{:?}", self.0)
             }
         }
+
+        impl fmt::Binary for Bn {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let bytes = self.to_bytes();
+                for b in &bytes {
+                    write!(f, "{:b}", b)?;
+                }
+                Ok(())
+            }
+        }
+
+        impl fmt::Octal for Bn {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let bytes = self.to_bytes();
+                for b in &bytes {
+                    write!(f, "{:o}", b)?;
+                }
+                Ok(())
+            }
+        }
+
+        impl fmt::LowerHex for Bn {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let bytes = self.to_bytes();
+                for b in &bytes {
+                    write!(f, "{:x}", b)?;
+                }
+                Ok(())
+            }
+        }
+
+        impl fmt::UpperHex for Bn {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let bytes = self.to_bytes();
+                for b in &bytes {
+                    write!(f, "{:X}", b)?;
+                }
+                Ok(())
+            }
+        }
     };
 }
 
