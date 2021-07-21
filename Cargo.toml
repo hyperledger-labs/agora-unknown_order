@@ -14,7 +14,7 @@ license = "Apache-2.0"
 name = "unknown_order"
 readme = "README.md"
 repository = "https://github.com/mikelodder7/unknown_order"
-version = "0.2.2"
+version = "0.2.3"
 
 [features]
 default = ["rust"]

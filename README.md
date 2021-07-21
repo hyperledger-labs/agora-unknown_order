@@ -18,14 +18,14 @@ To use OpenSSL's BigNum library, you must have libcrypto and libssl in your path
 Put the following in your `Cargo.toml`.
 
 ```toml
-unknown_order = { version = "0.1", default-features = false, features = ["openssl"] }
+unknown_order = { version = "0.2", default-features = false, features = ["openssl"] }
 ```
 
 To use Gnu MP BigNum library, you must have libgmp in your path.
 Put the following in your `Cargo.toml`.
 
 ```toml
-unknown_order = { version = "0.1", default-features = false, features = ["gmp"] }
+unknown_order = { version = "0.2", default-features = false, features = ["gmp"] }
 ```
 
 This library wraps them all into a common API, so they can be used interchangeably.
