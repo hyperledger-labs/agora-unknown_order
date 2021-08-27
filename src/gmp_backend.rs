@@ -3,10 +3,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 use crate::{get_mod, GcdResult};
-use gmp::{
-    mpz::{Mpz, ProbabPrimeResult},
-    rand::RandState,
-};
+use gmp::mpz::{Mpz, ProbabPrimeResult};
 use rand::RngCore;
 use serde::{
     de::{Error as DError, Unexpected, Visitor},
@@ -86,7 +83,7 @@ impl Bn {
     pub fn modpow(&self, exponent: &Self, n: &Self) -> Self {
         assert_ne!(n.0, Mpz::zero());
         if exponent.0 < Mpz::new() {
-            match self.invert(&n) {
+            match self.invert(n) {
                 None => Self::zero(),
                 Some(a) => {
                     let e = -exponent.0.clone();
@@ -156,7 +153,7 @@ impl Bn {
         if self.is_zero() || modulus.is_zero() || modulus.is_one() {
             return None;
         }
-        self.0.invert(&modulus.0).map(|b| Self(b))
+        self.0.invert(&modulus.0).map(Self)
     }
 
     /// Return zero
@@ -191,12 +188,11 @@ impl Bn {
 
     /// Generate a random value less than `n`
     pub fn random(n: &Self) -> Self {
-        let mut rng = rand::rngs::OsRng::default();
-        let len = (n.0.bit_length() - 1) / 8;
-        let mut t = vec![0u8; len as usize];
+        let size = n.0.bit_length();
+
         loop {
-            rng.fill_bytes(t.as_mut_slice());
-            let b = Mpz::from(t.as_slice());
+            let b = _random_nbit(size);
+
             if b < n.0 {
                 return Self(b);
             }
@@ -240,41 +236,44 @@ impl Bn {
 
     /// Generate a safe prime with `size` bits
     pub fn safe_prime(size: usize) -> Self {
-        let mut rand_state = RandState::new();
-        let mut seed = [0u8; 32];
-        rand::rngs::OsRng::default().fill_bytes(&mut seed);
-        rand_state.seed(Mpz::from(&seed[..]));
-        let mut p = (rand_state.urandom_2exp((size - 1) as u64).nextprime() << 1) + 1;
+        let mut p = _random_nbit(size - 1);
+
+        // Set the MSB bit so that we're sampling from [2^(size - 2), 2^(size - 1))
+        p.setbit(size - 2);
+
         loop {
-            while p.bit_length() != size {
-                p = (rand_state.urandom_2exp((size - 1) as u64).nextprime() << 1) + 1;
-            }
-            match p.probab_prime(15) {
-                ProbabPrimeResult::Prime | ProbabPrimeResult::ProbablyPrime => return Self(p),
-                _ => p = (rand_state.urandom_2exp((size - 1) as u64).nextprime() << 1) + 1,
+            p = p.nextprime();
+            p <<= 1;
+            p += 1;
+
+            // Using 25 to mimic GMP's use of 25 rounds in nextprime
+            if let ProbabPrimeResult::Prime | ProbabPrimeResult::ProbablyPrime = p.probab_prime(25)
+            {
+                return Self(p);
             };
+
+            p >>= 1;
         }
     }
 
     /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
-        let mut rand_state = RandState::new();
-        let mut seed = [0u8; 32];
-        rand::rngs::OsRng::default().fill_bytes(&mut seed);
-        rand_state.seed(Mpz::from(&seed[..]));
-        let mut p = rand_state.urandom_2exp(size as u64).nextprime();
-        while p.bit_length() != size {
-            p = rand_state.urandom_2exp(size as u64).nextprime();
-        }
+        let mut p = _random_nbit(size);
+
+        // Set the MSB bit so that we're sampling from [2^(size - 1), 2^size)
+        p.setbit(size - 1);
+
+        p = p.nextprime();
+
         Self(p)
     }
 
     /// True if a prime number
     pub fn is_prime(&self) -> bool {
-        match self.0.probab_prime(15) {
-            ProbabPrimeResult::Prime | ProbabPrimeResult::ProbablyPrime => true,
-            _ => false,
-        }
+        matches!(
+            self.0.probab_prime(25),
+            ProbabPrimeResult::Prime | ProbabPrimeResult::ProbablyPrime
+        )
     }
 
     /// Simultaneous integer division and modulus
@@ -340,6 +339,21 @@ fn _div_rem(lhs: &Mpz, rhs: &Mpz) -> (Mpz, Mpz) {
         let r = std::mem::transmute(r_res);
         (q, r)
     }
+}
+
+/// Sample a bignum from [0, 2^size)
+fn _random_nbit(size: usize) -> Mpz {
+    let len = (size + 7) / 8;
+    let mut buf = vec![0u8; len];
+
+    let mut rng = rand::thread_rng();
+
+    rng.fill_bytes(&mut buf);
+
+    let mut x = Mpz::from(buf.as_ref());
+    x >>= len * 8 - size;
+
+    x
 }
 
 #[test]
