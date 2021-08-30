@@ -72,7 +72,7 @@ impl Bn {
     /// The result will be in the interval `[0, n)` for `n > 0`
     pub fn modpow(&self, exponent: &Self, n: &Self) -> Self {
         assert_ne!(n.0, BigInt::zero());
-        let nn = get_mod(&n);
+        let nn = get_mod(n);
         if exponent.0 < BigInt::zero() {
             match self.invert(&nn) {
                 None => Self::zero(),
@@ -88,7 +88,7 @@ impl Bn {
 
     /// Compute (self + rhs) mod n
     pub fn modadd(&self, rhs: &Self, n: &Self) -> Self {
-        let nn = get_mod(&n);
+        let nn = get_mod(n);
         let mut t = (self + rhs) % &nn;
         if t < Bn::zero() {
             t += &nn;
@@ -98,7 +98,7 @@ impl Bn {
 
     /// Compute (self - rhs) mod n
     pub fn modsub(&self, rhs: &Self, n: &Self) -> Self {
-        let nn = get_mod(&n);
+        let nn = get_mod(n);
         let mut t = (self - rhs) % &nn;
         if t < Bn::zero() {
             t += &nn;
@@ -108,7 +108,7 @@ impl Bn {
 
     /// Compute (self * rhs) mod n
     pub fn modmul(&self, rhs: &Self, n: &Self) -> Self {
-        let nn = get_mod(&n);
+        let nn = get_mod(n);
         let mut t = (self * rhs) % &nn;
         if t < Bn::zero() {
             t += &nn;
@@ -118,7 +118,7 @@ impl Bn {
 
     /// Compute (self * 1/rhs) mod n
     pub fn moddiv(&self, rhs: &Self, n: &Self) -> Self {
-        let nn = get_mod(&n);
+        let nn = get_mod(n);
         match rhs.invert(&nn) {
             None => Self::zero(),
             Some(r) => {
@@ -218,12 +218,12 @@ impl Bn {
 
     /// Generate a random value less than `n`
     pub fn random(n: &Self) -> Self {
-        let mut rng = rand::rngs::OsRng::default();
+        let mut rng = rand::thread_rng();
         let len = (n.0.bits() - 1) / 8;
         let mut t = vec![0u8; len as usize];
         loop {
-            rng.fill_bytes(t.as_mut_slice());
-            let b = BigInt::from_bytes_be(Sign::Plus, t.as_slice());
+            rng.fill_bytes(&mut t);
+            let b = BigInt::from_bytes_be(Sign::Plus, &t);
             if b < n.0 {
                 return Self(b);
             }
@@ -266,7 +266,7 @@ impl Bn {
             let q = r.1.clone() / r.0.clone();
             let f = |mut r: (Self, Self)| {
                 swap(&mut r.0, &mut r.1);
-                r.0 = r.0 - q.clone() * r.1.clone();
+                r.0 -= q.clone() * r.1.clone();
                 r
             };
             r = f(r);
