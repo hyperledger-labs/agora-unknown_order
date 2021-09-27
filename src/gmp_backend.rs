@@ -3,7 +3,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 use crate::{get_mod, GcdResult};
-use gmp::mpz::{Mpz, ProbabPrimeResult};
+use gmp::mpz::{mpz_ptr, mpz_srcptr, Mpz, ProbabPrimeResult};
 use rand::RngCore;
 use serde::{
     de::{Error as DError, Unexpected, Visitor},
@@ -283,60 +283,25 @@ impl Bn {
     }
 }
 
-#[repr(C)]
-pub struct MpzStruct {
-    _mp_alloc: std::os::raw::c_int,
-    _mp_size: std::os::raw::c_int,
-    _mp_d: *mut std::os::raw::c_void,
-}
-pub type MpzSrcptr = *const MpzStruct;
-pub type MpzPtr = *mut MpzStruct;
-
 #[link(name = "gmp")]
 extern "C" {
-    fn __gmpz_init(x: MpzPtr);
-    fn __gmpz_tdiv_qr(q: MpzPtr, r: MpzPtr, n: MpzSrcptr, d: MpzSrcptr);
-    fn __gmpz_clear(x: MpzPtr);
-}
-
-pub struct MpzMpz {
-    mpz: MpzStruct,
-}
-
-unsafe impl Send for MpzMpz {}
-unsafe impl Sync for MpzMpz {}
-
-impl Drop for MpzMpz {
-    fn drop(&mut self) {
-        unsafe { __gmpz_clear(&mut self.mpz) }
-    }
-}
-
-impl Default for MpzMpz {
-    fn default() -> MpzMpz {
-        unsafe {
-            let mut mpz = std::mem::MaybeUninit::uninit().assume_init();
-            __gmpz_init(&mut mpz);
-            MpzMpz { mpz }
-        }
-    }
+    fn __gmpz_tdiv_qr(q: mpz_ptr, r: mpz_ptr, n: mpz_srcptr, d: mpz_srcptr);
 }
 
 fn _div_rem(lhs: &Mpz, rhs: &Mpz) -> (Mpz, Mpz) {
+    // SAFETY: q, r, lhs, and rhs are all initialized
+    // Note: There probably is UB in the implementation of Mpz::new() since it uses the deprecated
+    // [uninitialized](https://doc.rust-lang.org/std/mem/fn.uninitialized.html) function instead
+    // of [MaybeUninit](https://doc.rust-lang.org/std/mem/fn.uninitialized.html)
     unsafe {
         if rhs.is_zero() {
             panic!("divide by zero");
         }
 
-        let tv1: MpzMpz = std::mem::transmute(lhs.clone());
-        let tv2: MpzMpz = std::mem::transmute(rhs.clone());
+        let mut q = Mpz::new();
+        let mut r = Mpz::new();
+        __gmpz_tdiv_qr(q.inner_mut(), r.inner_mut(), lhs.inner(), rhs.inner());
 
-        let mut q_res = MpzMpz::default();
-        let mut r_res = MpzMpz::default();
-        __gmpz_tdiv_qr(&mut q_res.mpz, &mut r_res.mpz, &tv1.mpz, &tv2.mpz);
-
-        let q = std::mem::transmute(q_res);
-        let r = std::mem::transmute(r_res);
         (q, r)
     }
 }
