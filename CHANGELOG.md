@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Updated
 
+- Changed rust-gmp to rug
 - License either MIT or Apache 2.0
 - Update dependencies
 
