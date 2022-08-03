@@ -25,6 +25,7 @@ use std::{
         SubAssign,
     },
 };
+use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
 /// Big number
@@ -64,6 +65,13 @@ shift_impl!(Shl, shl, |lhs, rhs| Bn(lhs << rhs));
 shift_impl!(Shr, shr, |lhs, rhs| Bn(lhs >> rhs));
 #[cfg(feature = "wasm")]
 wasm_slice_impl!(Bn);
+
+impl ConstantTimeEq for Bn {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        let res = self - other;
+        Choice::from(if res.0.is_zero() { 1u8 } else { 0u8 })
+    }
+}
 
 impl Bn {
     /// Returns `(self ^ exponent) mod n`
@@ -323,4 +331,12 @@ fn safe_prime() {
     assert!(n.is_prime());
     let sg: Bn = n >> 1;
     assert!(sg.is_prime())
+}
+
+#[test]
+fn ct_eq() {
+    let a = Bn::from(8);
+    let b = Bn::from(8);
+
+    assert_eq!(a.ct_eq(&b).unwrap_u8(), 1u8);
 }

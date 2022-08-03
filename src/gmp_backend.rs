@@ -10,7 +10,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
-    cmp::{Eq, PartialEq, PartialOrd},
+    cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
     iter::{Product, Sum},
     ops::{
@@ -18,6 +18,7 @@ use std::{
         SubAssign,
     },
 };
+use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
 /// Big number
@@ -60,6 +61,17 @@ shift_impl!(Shl, shl, |lhs: &Integer, rhs| Bn(lhs
 shift_impl!(Shr, shr, |lhs: &Integer, rhs| Bn(lhs
     .shr(rhs as u32)
     .complete()));
+
+impl ConstantTimeEq for Bn {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        let res = self - other;
+        Choice::from(if res.0.cmp0() == Ordering::Equal {
+            1u8
+        } else {
+            0u8
+        })
+    }
+}
 
 impl Bn {
     /// Returns `(self ^ exponent) mod n`
@@ -158,7 +170,7 @@ impl Bn {
 
     /// self == 0
     pub fn is_zero(&self) -> bool {
-        self.0.find_one(0) == None
+        self.0.cmp0() == Ordering::Equal
     }
 
     /// self == 1
@@ -334,4 +346,12 @@ fn div_rem_test() {
     let (q, r) = a.div_rem(&b);
     assert_eq!(q, Bn::from(2));
     assert_eq!(r, Bn::from(3));
+}
+
+#[test]
+fn ct_eq() {
+    let a = Bn::from(8);
+    let b = Bn::from(8);
+
+    assert_eq!(a.ct_eq(&b).unwrap_u8(), 1u8);
 }

@@ -9,7 +9,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
-    cmp::{Eq, PartialEq, PartialOrd},
+    cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
     iter::{Product, Sum},
     mem::swap,
@@ -18,6 +18,7 @@ use std::{
         SubAssign,
     },
 };
+use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
 /// Big number
@@ -198,6 +199,16 @@ shift_impl!(Shr, shr, |lhs: &BigNum, rhs| {
     }
     Bn(n)
 });
+
+impl ConstantTimeEq for Bn {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        Choice::from(if self.0.ucmp(&other.0) == Ordering::Equal {
+            1u8
+        } else {
+            0u8
+        })
+    }
+}
 
 impl Bn {
     /// Returns `(self ^ exponent) mod n`
@@ -410,4 +421,12 @@ fn safe_prime() {
     assert!(n.is_prime());
     let sg: Bn = n >> 1;
     assert!(sg.is_prime())
+}
+
+#[test]
+fn ct_eq() {
+    let a = Bn::from(8);
+    let b = Bn::from(8);
+
+    assert_eq!(a.ct_eq(&b).unwrap_u8(), 1u8);
 }
