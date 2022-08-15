@@ -80,16 +80,16 @@ impl Bn {
     /// The result will be in the interval `[0, n)` for `n > 0`
     pub fn modpow(&self, exponent: &Self, n: &Self) -> Self {
         assert_ne!(n.0, Integer::new());
-        if exponent.0 < Integer::new() {
-            match self.invert(n) {
+        match exponent.0.cmp0() {
+            Ordering::Less => match self.invert(n) {
                 None => Self::zero(),
                 Some(a) => {
                     let e = -exponent.0.clone();
                     Self(a.0.secure_pow_mod_ref(&e, &n.0).complete())
                 }
-            }
-        } else {
-            Self(self.0.secure_pow_mod_ref(&exponent.0, &n.0).complete())
+            },
+            Ordering::Equal => Self::one(),
+            Ordering::Greater => Self(self.0.secure_pow_mod_ref(&exponent.0, &n.0).complete()),
         }
     }
 
@@ -354,4 +354,19 @@ fn ct_eq() {
     let b = Bn::from(8);
 
     assert_eq!(a.ct_eq(&b).unwrap_u8(), 1u8);
+}
+
+#[test]
+fn modpow() {
+    let p = Bn::from(7);
+    let q = Bn::from(13);
+
+    let n = &p * &q;
+
+    let e = Bn::zero();
+    let g = Bn::from(3);
+
+    let o = (&g).modpow(&e, &n);
+
+    assert_eq!(o, Bn::one());
 }
