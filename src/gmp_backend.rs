@@ -3,7 +3,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 use crate::{get_mod, GcdResult};
-use rand::RngCore;
+use rand::{Error, RngCore};
 use rug::{Assign, Complete, Integer};
 use serde::{
     de::{Error as DError, Unexpected, Visitor},
@@ -190,10 +190,18 @@ impl Bn {
 
     /// Generate a random value less than `n`
     pub fn random(n: &Self) -> Self {
+        let mut rng = GmpRand::default();
+        Self::from_rng(n, &mut rng)
+    }
+
+    /// Generate a random value less than `n` using the specific random number generator
+    pub fn from_rng(n: &Self, rng: &mut impl RngCore) -> Self {
+        let mut e_rng = ExternalRand { rng };
+
         let size = n.0.significant_bits() as usize;
 
         loop {
-            let b = _random_nbit(size);
+            let b = _random_nbit(size, &mut e_rng);
 
             if b < n.0 {
                 return Self(b);
@@ -239,8 +247,9 @@ impl Bn {
     pub fn safe_prime(size: usize) -> Self {
         use rug::integer::IsPrime;
 
+        let mut rng = GmpRand::default();
         loop {
-            let mut p = _random_nbit(size - 1);
+            let mut p = _random_nbit(size - 1, &mut rng);
 
             // Set the MSB bit so that we're sampling from [2^(size - 2), 2^(size - 1))
             p.set_bit((size - 2) as u32, true);
@@ -257,7 +266,8 @@ impl Bn {
 
     /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
-        let mut p = _random_nbit(size);
+        let mut gmprng = GmpRand::default();
+        let mut p = _random_nbit(size, &mut gmprng);
 
         // Set the MSB bit so that we're sampling from [2^(size - 1), 2^size)
         p.set_bit((size - 1) as u32, true);
@@ -284,11 +294,10 @@ impl Bn {
 }
 
 /// Sample a bignum from [0, 2^size)
-fn _random_nbit(size: usize) -> Integer {
+fn _random_nbit<R: rug::rand::ThreadRandGen>(size: usize, gmprng: &mut R) -> Integer {
     use rug::rand::ThreadRandState;
 
-    let mut gmprng = GmpRand::default();
-    let mut rng = ThreadRandState::new_custom(&mut gmprng);
+    let mut rng = ThreadRandState::new_custom(gmprng);
 
     let mut x = Integer::new();
     let len = size as u32;
@@ -297,6 +306,16 @@ fn _random_nbit(size: usize) -> Integer {
     }
 
     x
+}
+
+struct ExternalRand<'a, T: RngCore> {
+    rng: &'a mut T,
+}
+
+impl<T: RngCore> rug::rand::ThreadRandGen for ExternalRand<'_, T> {
+    fn gen(&mut self) -> u32 {
+        self.rng.next_u32()
+    }
 }
 
 struct GmpRand {
@@ -314,6 +333,24 @@ impl Default for GmpRand {
 impl rug::rand::ThreadRandGen for GmpRand {
     fn gen(&mut self) -> u32 {
         self.rng.next_u32()
+    }
+}
+
+impl RngCore for GmpRand {
+    fn next_u32(&mut self) -> u32 {
+        self.rng.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.rng.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.rng.fill_bytes(dest)
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        self.rng.try_fill_bytes(dest)
     }
 }
 

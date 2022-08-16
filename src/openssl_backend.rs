@@ -4,6 +4,7 @@
 */
 use crate::GcdResult;
 use openssl::bn::{BigNum, BigNumContext, BigNumRef};
+use rand::RngCore;
 use serde::{
     de::{Error as DError, Unexpected, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -328,6 +329,12 @@ impl Bn {
         let mut b = BigNum::new().unwrap();
         BigNumRef::rand_range(&n.0, &mut b).unwrap();
         Self(b)
+    }
+
+    /// Generate a random value less than `n` using the specific random number generator
+    pub fn from_rng(n: &Self, _rng: &mut impl RngCore) -> Self {
+        // OpenSSL doesn't support supplying random number generators
+        Self::random(n)
     }
 
     /// Hash a byte sequence to a big number

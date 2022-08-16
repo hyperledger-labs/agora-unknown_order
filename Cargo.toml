@@ -14,13 +14,13 @@ license = "Apache-2.0 OR MIT"
 name = "unknown_order"
 readme = "README.md"
 repository = "https://github.com/mikelodder7/unknown_order"
-version = "0.3.2"
+version = "0.4.0"
 
 [features]
-default = ["rust"]
+default = ["openssl"]
 gmp = ["hex", "rand/default", "rug"]
-rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits", "rand"]
-wasm = ["getrandom", "rand", "wasm-bindgen"]
+rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits"]
+wasm = ["getrandom", "wasm-bindgen"]
 
 [dependencies]
 digest = "0.9"
@@ -31,7 +31,7 @@ num-bigint = { version = "0.4", optional = true }
 num-integer = { version = "0.1", optional = true }
 num-traits = { version = "0.2", optional = true }
 openssl = { version = "^0.10.41", optional = true }
-rand = { version = "0.8", default-features = false, optional = true }
+rand = { version = "0.8", default-features = false  }
 rug = { version = "1.16", default-features = false, features = ["integer", "rand"], optional = true }
 serde = { version = "1.0", features = ["serde_derive"] }
 subtle = "2.4"
