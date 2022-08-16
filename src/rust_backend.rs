@@ -147,6 +147,16 @@ impl Bn {
         t
     }
 
+    /// Compute self mod n
+    pub fn nmod(&self, n: &Self) -> Self {
+        let nn = get_mod(n);
+        let mut out = self.clone() % nn;
+        if out < Self::zero() {
+            out += n;
+        }
+        out
+    }
+
     /// Computes the multiplicative inverse of this element, failing if the element is zero.
     pub fn invert(&self, n: &Self) -> Option<Self> {
         if self.0.is_zero() || n.is_zero() || n.is_one() {

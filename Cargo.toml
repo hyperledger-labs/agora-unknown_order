@@ -17,7 +17,7 @@ repository = "https://github.com/mikelodder7/unknown_order"
 version = "0.4.0"
 
 [features]
-default = ["openssl"]
+default = ["rust"]
 gmp = ["hex", "rand/default", "rug"]
 rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits"]
 wasm = ["getrandom", "wasm-bindgen"]

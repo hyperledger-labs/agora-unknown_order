@@ -275,6 +275,14 @@ impl Bn {
         t
     }
 
+    /// Compute self mod n
+    pub fn nmod(&self, n: &Self) -> Self {
+        let mut ctx = BigNumContext::new().unwrap();
+        let mut t = BigNum::new().unwrap();
+        BigNumRef::nnmod(&mut t, &self.0, &n.0, &mut ctx).unwrap();
+        Bn(t)
+    }
+
     /// Computes the multiplicative inverse of this element, failing if the element is zero.
     pub fn invert(&self, modulus: &Bn) -> Option<Bn> {
         if self.is_zero() || modulus.is_zero() || modulus.is_one() {
