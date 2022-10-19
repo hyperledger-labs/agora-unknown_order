@@ -14,18 +14,18 @@ license = "Apache-2.0 OR MIT"
 name = "unknown_order"
 readme = "README.md"
 repository = "https://github.com/mikelodder7/unknown_order"
-version = "0.4.0"
+version = "0.5.0"
 
 [features]
 default = ["rust"]
 gmp = ["hex", "rand/default", "rug"]
-rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits"]
+rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits", "rand/default"]
 wasm = ["getrandom", "wasm-bindgen"]
 
 [dependencies]
 digest = "0.9"
 getrandom = { version = "0.2", features = ["js"], optional = true }
-glass_pumpkin = { version = "1.2", optional = true }
+glass_pumpkin = { version = "1.5", optional = true }
 hex = { version = "0.4", optional = true }
 num-bigint = { version = "0.4", optional = true }
 num-integer = { version = "0.1", optional = true }
