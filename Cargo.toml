@@ -20,7 +20,7 @@ version = "0.5.0"
 default = ["rust"]
 gmp = ["hex", "rand/default", "rug"]
 rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits", "rand/default"]
-wasm = ["getrandom", "wasm-bindgen"]
+wasm = ["getrandom", "wasm-bindgen", "serde-wasm-bindgen"]
 
 [dependencies]
 digest = "0.9"
@@ -37,6 +37,7 @@ serde = { version = "1.0", features = ["serde_derive"] }
 subtle = "2.4"
 wasm-bindgen = { version = "0.2", default-features = false, features = ["serde-serialize"], optional = true }
 zeroize = "1.4"
+serde-wasm-bindgen = { version = "0.4", optional = true }
 
 [dev-dependencies]
 blake2 = "0.9"
