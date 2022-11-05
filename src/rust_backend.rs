@@ -224,6 +224,11 @@ impl Bn {
         Self(BigInt::one())
     }
 
+    /// Return the bit length
+    pub fn bit_length(&self) -> usize {
+        self.0.bits() as usize
+    }
+
     /// Compute the greatest common divisor
     pub fn gcd(&self, other: &Self) -> Self {
         Self(self.0.gcd(&other.0))

@@ -188,6 +188,11 @@ impl Bn {
         self.0 == Integer::from(1)
     }
 
+    /// Return the bit length
+    pub fn bit_length(&self) -> usize {
+        self.0.significant_bits() as usize
+    }
+
     /// Compute the greatest common divisor
     pub fn gcd(&self, other: &Bn) -> Self {
         Self(self.0.gcd_ref(&other.0).complete())

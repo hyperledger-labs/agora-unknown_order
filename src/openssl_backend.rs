@@ -315,6 +315,11 @@ impl Bn {
         self.0.num_bits() == 1 && self.0.is_bit_set(0)
     }
 
+    /// Return the bit length
+    pub fn bit_length(&self) -> usize {
+        self.0.num_bits() as usize
+    }
+
     /// Compute the greatest common divisor
     pub fn gcd(&self, other: &Bn) -> Self {
         let mut bn = BigNum::new().unwrap();
