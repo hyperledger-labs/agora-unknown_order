@@ -324,7 +324,13 @@ impl Bn {
 
     /// Generate a safe prime with `size` bits
     pub fn safe_prime(size: usize) -> Self {
-        let p = safe_prime::new(size).unwrap();
+        let mut rng = rand::thread_rng();
+        Self::safe_prime_from_rng(size, &mut rng)
+    }
+
+    /// Generate a safe prime with `size` bits with a user-provided rng
+    pub fn safe_prime_from_rng(size: usize, rng: &mut impl RngCore) -> Self {
+        let p = safe_prime::from_rng(size, rng).unwrap();
         Self(p.to_bigint().unwrap())
     }
 

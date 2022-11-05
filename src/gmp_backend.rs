@@ -260,11 +260,17 @@ impl Bn {
 
     /// Generate a safe prime with `size` bits
     pub fn safe_prime(size: usize) -> Self {
+        Self::safe_prime_from_rng(size, &mut GmpRand::default())
+    }
+
+    /// Generate a safe prime with `size` bits with a user-provided rng
+    pub fn safe_prime_from_rng(size: usize, rng: &mut impl RngCore) -> Self {
         use rug::integer::IsPrime;
 
-        let mut rng = GmpRand::default();
+        let mut e_rng = ExternalRand { rng };
+
         loop {
-            let mut p = _random_nbit(size - 1, &mut rng);
+            let mut p = _random_nbit(size - 1, &mut e_rng);
 
             // Set the MSB bit so that we're sampling from [2^(size - 2), 2^(size - 1))
             p.set_bit((size - 2) as u32, true);
