@@ -247,10 +247,15 @@ impl Bn {
 
     /// Generate a random value less than `n` using the specific random number generator
     pub fn from_rng(n: &Self, rng: &mut impl RngCore) -> Self {
-        let len = (n.0.bits() - 1) / 8;
-        let mut t = vec![0u8; len as usize];
+        let bits = n.0.bits() as usize;
+        let len_bytes = (bits - 1) / 8 + 1;
+        let high_bits = len_bytes * 8 - bits;
+        let mut t = vec![0u8; len_bytes as usize];
         loop {
             rng.fill_bytes(&mut t);
+            if high_bits > 0 {
+                t[0] &= u8::MAX >> high_bits;
+            }
             let b = BigInt::from_bytes_be(Sign::Plus, &t);
             if b < n.0 {
                 return Self(b);
