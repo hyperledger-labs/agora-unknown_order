@@ -330,7 +330,13 @@ impl Bn {
 
     /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
-        let p = prime::new(size).unwrap();
+        let mut rng = rand::thread_rng();
+        Self::prime_from_rng(size, &mut rng)
+    }
+
+    /// Generate a prime with `size` bits with a user-provided rng
+    pub fn prime_from_rng(size: usize, rng: &mut impl RngCore) -> Self {
+        let p = prime::from_rng(size, rng).unwrap();
         Self(p.to_bigint().unwrap())
     }
 

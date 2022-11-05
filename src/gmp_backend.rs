@@ -281,8 +281,13 @@ impl Bn {
 
     /// Generate a prime with `size` bits
     pub fn prime(size: usize) -> Self {
-        let mut gmprng = GmpRand::default();
-        let mut p = _random_nbit(size, &mut gmprng);
+        Self::prime_from_rng(size, &mut GmpRand::default())
+    }
+
+    /// Generate a prime with `size` bits with a user-provided rng
+    pub fn prime_from_rng(size: usize, rng: &mut impl RngCore) -> Self {
+        let mut e_rng = ExternalRand { rng };
+        let mut p = _random_nbit(size, &mut e_rng);
 
         // Set the MSB bit so that we're sampling from [2^(size - 1), 2^size)
         p.set_bit((size - 1) as u32, true);
