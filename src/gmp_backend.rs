@@ -4,6 +4,7 @@
 */
 use crate::{get_mod, GcdResult};
 use rand::{Error, RngCore};
+use rug::rand::ThreadRandState;
 use rug::{Assign, Complete, Integer};
 use serde::{
     de::{Error as DError, Unexpected, Visitor},
@@ -213,7 +214,7 @@ impl Bn {
     pub fn from_rng(n: &Self, rng: &mut impl RngCore) -> Self {
         let mut e_rng = ExternalRand { rng };
 
-        let size = n.0.significant_bits() as usize;
+        let size = n.0.significant_bits();
 
         loop {
             let b = _random_nbit(size, &mut e_rng);
@@ -270,7 +271,7 @@ impl Bn {
         let mut e_rng = ExternalRand { rng };
 
         loop {
-            let mut p = _random_nbit(size - 1, &mut e_rng);
+            let mut p = _random_nbit((size - 1) as u32, &mut e_rng);
 
             // Set the MSB bit so that we're sampling from [2^(size - 2), 2^(size - 1))
             p.set_bit((size - 2) as u32, true);
@@ -293,7 +294,7 @@ impl Bn {
     /// Generate a prime with `size` bits with a user-provided rng
     pub fn prime_from_rng(size: usize, rng: &mut impl RngCore) -> Self {
         let mut e_rng = ExternalRand { rng };
-        let mut p = _random_nbit(size, &mut e_rng);
+        let mut p = _random_nbit(size as u32, &mut e_rng);
 
         // Set the MSB bit so that we're sampling from [2^(size - 1), 2^size)
         p.set_bit((size - 1) as u32, true);
@@ -320,17 +321,10 @@ impl Bn {
 }
 
 /// Sample a bignum from [0, 2^size)
-fn _random_nbit<R: rug::rand::ThreadRandGen>(size: usize, gmprng: &mut R) -> Integer {
-    use rug::rand::ThreadRandState;
-
+fn _random_nbit<R: rug::rand::ThreadRandGen>(size: u32, gmprng: &mut R) -> Integer {
     let mut rng = ThreadRandState::new_custom(gmprng);
-
     let mut x = Integer::new();
-    let len = size as u32;
-    while x.significant_bits() != len {
-        x.assign(Integer::random_bits(size as u32, &mut rng));
-    }
-
+    x.assign(Integer::random_bits(size, &mut rng));
     x
 }
 
