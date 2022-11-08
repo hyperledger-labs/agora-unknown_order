@@ -23,23 +23,23 @@ use zeroize::Zeroize;
 pub struct Bn(pub(crate) Integer);
 
 clone_impl!(|b: &Bn| b.0.clone());
-default_impl!(|| Integer::new());
+default_impl!(Integer::new);
 display_impl!();
 eq_impl!();
 #[cfg(target_pointer_width = "64")]
-from_impl!(|d: i128| Integer::from(d), i128);
+from_impl!(Integer::from, i128);
 #[cfg(target_pointer_width = "64")]
-from_impl!(|d: u128| Integer::from(d), u128);
-from_impl!(|d: usize| Integer::from(d), usize);
-from_impl!(|d: u64| Integer::from(d), u64);
-from_impl!(|d: u32| Integer::from(d), u32);
-from_impl!(|d: u16| Integer::from(d), u16);
-from_impl!(|d: u8| Integer::from(d), u8);
-from_impl!(|d: isize| Integer::from(d), isize);
-from_impl!(|d: i64| Integer::from(d), i64);
-from_impl!(|d: i32| Integer::from(d), i32);
-from_impl!(|d: i16| Integer::from(d), i16);
-from_impl!(|d: i8| Integer::from(d), i8);
+from_impl!(Integer::from, u128);
+from_impl!(Integer::from, usize);
+from_impl!(Integer::from, u64);
+from_impl!(Integer::from, u32);
+from_impl!(Integer::from, u16);
+from_impl!(Integer::from, u8);
+from_impl!(Integer::from, isize);
+from_impl!(Integer::from, i64);
+from_impl!(Integer::from, i32);
+from_impl!(Integer::from, i16);
+from_impl!(Integer::from, i8);
 iter_impl!();
 serdes_impl!(
     |b: &Bn| b.0.to_string_radix(16),
@@ -196,7 +196,7 @@ impl Bn {
 
     /// self == 1
     pub fn is_one(&self) -> bool {
-        self.0 == Integer::from(1)
+        self.0 == 1
     }
 
     /// Return the bit length

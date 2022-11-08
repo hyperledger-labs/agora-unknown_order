@@ -229,7 +229,7 @@ impl Bn {
         let mut ctx = BigNumContext::new().unwrap();
         let mut bn = BigNum::new().unwrap();
         if exponent.0.is_negative() {
-            match self.invert(&n) {
+            match self.invert(n) {
                 None => {}
                 Some(a) => {
                     let e = -exponent.clone();
@@ -390,7 +390,7 @@ impl Bn {
             let q = r.1.clone() / r.0.clone();
             let f = |mut r: (Self, Self)| {
                 swap(&mut r.0, &mut r.1);
-                r.0 = r.0 - q.clone() * r.1.clone();
+                r.0 -= q.clone() * r.1.clone();
                 r
             };
             r = f(r);

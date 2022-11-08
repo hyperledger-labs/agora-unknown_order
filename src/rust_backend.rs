@@ -29,23 +29,23 @@ use zeroize::Zeroize;
 pub struct Bn(pub(crate) BigInt);
 
 clone_impl!(|b: &Bn| b.0.clone());
-default_impl!(|| BigInt::default());
+default_impl!(BigInt::default);
 display_impl!();
 eq_impl!();
 #[cfg(target_pointer_width = "64")]
-from_impl!(|d: i128| BigInt::from(d), i128);
+from_impl!(BigInt::from, i128);
 #[cfg(target_pointer_width = "64")]
-from_impl!(|d: u128| BigInt::from(d), u128);
-from_impl!(|d: usize| BigInt::from(d), usize);
-from_impl!(|d: u64| BigInt::from(d), u64);
-from_impl!(|d: u32| BigInt::from(d), u32);
-from_impl!(|d: u16| BigInt::from(d), u16);
-from_impl!(|d: u8| BigInt::from(d), u8);
-from_impl!(|d: isize| BigInt::from(d), isize);
-from_impl!(|d: i64| BigInt::from(d), i64);
-from_impl!(|d: i32| BigInt::from(d), i32);
-from_impl!(|d: i16| BigInt::from(d), i16);
-from_impl!(|d: i8| BigInt::from(d), i8);
+from_impl!(BigInt::from, u128);
+from_impl!(BigInt::from, usize);
+from_impl!(BigInt::from, u64);
+from_impl!(BigInt::from, u32);
+from_impl!(BigInt::from, u16);
+from_impl!(BigInt::from, u8);
+from_impl!(BigInt::from, isize);
+from_impl!(BigInt::from, i64);
+from_impl!(BigInt::from, i32);
+from_impl!(BigInt::from, i16);
+from_impl!(BigInt::from, i8);
 iter_impl!();
 serdes_impl!(
     |b: &Bn| b.0.to_str_radix(16),
