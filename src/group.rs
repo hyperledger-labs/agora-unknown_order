@@ -27,7 +27,7 @@ macro_rules! binops_group {
             type Output = BigNumber;
 
             fn $func(self, pair: (&'a BigNumber, BigNumber)) -> Self::Output {
-                self + (pair.0, &pair.1)
+                self.$func((pair.0, &pair.1))
             }
         }
 
@@ -35,7 +35,7 @@ macro_rules! binops_group {
             type Output = BigNumber;
 
             fn $func(self, pair: (BigNumber, &'b BigNumber)) -> Self::Output {
-                self + (&pair.0, pair.1)
+                self.$func((&pair.0, pair.1))
             }
         }
 
@@ -43,7 +43,7 @@ macro_rules! binops_group {
             type Output = BigNumber;
 
             fn $func(self, pair: (BigNumber, BigNumber)) -> Self::Output {
-                self + (&pair.0, &pair.1)
+                self.$func((&pair.0, &pair.1))
             }
         }
 
@@ -51,7 +51,7 @@ macro_rules! binops_group {
             type Output = BigNumber;
 
             fn $func(self, pair: (&'a BigNumber, &'b BigNumber)) -> Self::Output {
-                &self + pair
+                (&self).$func(pair)
             }
         }
 
@@ -59,7 +59,7 @@ macro_rules! binops_group {
             type Output = BigNumber;
 
             fn $func(self, pair: (&'a BigNumber, BigNumber)) -> Self::Output {
-                &self + (pair.0, &pair.1)
+                (&self).$func((pair.0, &pair.1))
             }
         }
 
@@ -67,7 +67,7 @@ macro_rules! binops_group {
             type Output = BigNumber;
 
             fn $func(self, pair: (BigNumber, &'b BigNumber)) -> Self::Output {
-                &self + (&pair.0, pair.1)
+                (&self).$func((&pair.0, pair.1))
             }
         }
 
@@ -75,7 +75,7 @@ macro_rules! binops_group {
             type Output = BigNumber;
 
             fn $func(self, pair: (BigNumber, BigNumber)) -> Self::Output {
-                &self + (&pair.0, &pair.1)
+                (&self).$func((&pair.0, &pair.1))
             }
         }
     };
@@ -90,7 +90,7 @@ macro_rules! binops_group_assign {
 
         impl<'a, 'c> $ops<(&'a mut BigNumber, BigNumber)> for &'c Group {
             fn $func(&mut self, pair: (&'a mut BigNumber, BigNumber)) {
-                *self += (pair.0, &pair.1)
+                (*self).$func((pair.0, &pair.1))
             }
         }
 
@@ -102,7 +102,7 @@ macro_rules! binops_group_assign {
 
         impl<'a> $ops<(&'a mut BigNumber, BigNumber)> for Group {
             fn $func(&mut self, pair: (&'a mut BigNumber, BigNumber)) {
-                *self += (pair.0, &pair.1)
+                (*self).$func((pair.0, &pair.1))
             }
         }
     };
