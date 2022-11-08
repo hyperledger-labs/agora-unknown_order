@@ -3,10 +3,8 @@
     SPDX-License-Identifier: Apache-2.0
 */
 use crate::{get_mod, GcdResult};
-use rand::{Error, RngCore};
-use rug::rand::ThreadRandState;
-use rug::{Assign, Complete, Integer};
-use std::{
+use alloc::vec::Vec;
+use core::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
     iter::{Product, Sum},
@@ -15,6 +13,9 @@ use std::{
         SubAssign,
     },
 };
+use rand::{Error, RngCore};
+use rug::rand::ThreadRandState;
+use rug::{Assign, Complete, Integer};
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 

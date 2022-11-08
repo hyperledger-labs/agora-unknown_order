@@ -3,9 +3,8 @@
     SPDX-License-Identifier: Apache-2.0
 */
 use crate::GcdResult;
-use openssl::bn::{BigNum, BigNumContext, BigNumRef};
-use rand::RngCore;
-use std::{
+use alloc::vec::Vec;
+use core::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
     iter::{Product, Sum},
@@ -15,6 +14,8 @@ use std::{
         SubAssign,
     },
 };
+use openssl::bn::{BigNum, BigNumContext, BigNumRef};
+use rand::RngCore;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 

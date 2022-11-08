@@ -3,15 +3,8 @@
     SPDX-License-Identifier: Apache-2.0
 */
 use crate::{get_mod, GcdResult};
-use glass_pumpkin::{prime, safe_prime};
-use num_bigint::{BigInt, Sign, ToBigInt};
-use num_integer::Integer;
-use num_traits::{
-    identities::{One, Zero},
-    Num,
-};
-use rand::RngCore;
-use std::{
+use alloc::{vec, vec::Vec};
+use core::{
     cmp::{Eq, Ord, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
     iter::{Product, Sum},
@@ -21,6 +14,14 @@ use std::{
         SubAssign,
     },
 };
+use glass_pumpkin::{prime, safe_prime};
+use num_bigint::{BigInt, Sign, ToBigInt};
+use num_integer::Integer;
+use num_traits::{
+    identities::{One, Zero},
+    Num,
+};
+use rand::RngCore;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 

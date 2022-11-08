@@ -17,6 +17,7 @@
 //! The modulus is not known at compile time which excludes using certain traits like `ff::PrimeField`, so
 //! unfortunately, the caller needs to remember to use methods prefixed with `mod` to achieve the desired results.
 
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
     missing_docs,
@@ -30,6 +31,8 @@
     while_true,
     warnings
 )]
+
+extern crate alloc;
 
 #[macro_use]
 mod macros;

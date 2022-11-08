@@ -357,7 +357,7 @@ macro_rules! wasm_slice_impl {
             unsafe fn from_abi(js: Self::Abi) -> Self {
                 let ptr = <*mut u8>::from_abi(js.ptr);
                 let len = js.len as usize;
-                let r = std::slice::from_raw_parts(ptr, len);
+                let r = core::slice::from_raw_parts(ptr, len);
                 $name::from_slice(&r)
             }
         }
@@ -374,7 +374,7 @@ macro_rules! wasm_slice_impl {
             }
         }
 
-        impl std::convert::TryFrom<wasm_bindgen::JsValue> for $name {
+        impl core::convert::TryFrom<wasm_bindgen::JsValue> for $name {
             type Error = &'static str;
 
             fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {

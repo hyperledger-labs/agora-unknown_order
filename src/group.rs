@@ -4,7 +4,7 @@
 */
 use crate::BigNumber;
 
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Represents a cyclic group where all operations are reduced by a modulus.
 /// Purely a convenience struct to avoid having to call mod{ops}
