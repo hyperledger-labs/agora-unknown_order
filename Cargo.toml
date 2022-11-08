@@ -18,7 +18,7 @@ version = "0.5.0"
 
 [features]
 default = ["rust"]
-gmp = ["hex", "rand/default", "rug"]
+gmp = ["hex", "rand/default", "rug/num-traits", "num-traits"]
 rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits", "rand/default"]
 wasm = ["getrandom", "wasm-bindgen", "serde-wasm-bindgen"]
 
@@ -43,3 +43,4 @@ serde-wasm-bindgen = { version = "0.4", optional = true }
 blake2 = "0.9"
 multibase = "0.9"
 serde_json = "1.0"
+bincode = "1.3"

@@ -6,10 +6,6 @@ use crate::{get_mod, GcdResult};
 use rand::{Error, RngCore};
 use rug::rand::ThreadRandState;
 use rug::{Assign, Complete, Integer};
-use serde::{
-    de::{Error as DError, Unexpected, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
 use std::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
@@ -45,9 +41,23 @@ from_impl!(|d: i32| Integer::from(d), i32);
 from_impl!(|d: i16| Integer::from(d), i16);
 from_impl!(|d: i8| Integer::from(d), i8);
 iter_impl!();
-serdes_impl!(|b: &Bn| b.0.to_string_radix(16), |s: &str| {
-    Integer::from_str_radix(s, 16)
-});
+serdes_impl!(
+    |b: &Bn| b.0.to_string_radix(16),
+    |s: &str| { Integer::from_str_radix(s, 16).ok() },
+    |b: &Bn| {
+        use num_traits::sign::Signed;
+        let mut digits = (&b.0).abs().to_digits::<u8>(rug::integer::Order::LsfBe);
+        digits.insert(0, if b.0.is_negative() { 1 } else { 0 });
+        digits
+    },
+    |s: &[u8]| {
+        if s.is_empty() {
+            return None;
+        }
+        let result = Integer::from_digits(&s[1..], rug::integer::Order::LsfBe);
+        Some(if s[0] == 1 { -result } else { result })
+    }
+);
 zeroize_impl!(|b: &mut Bn| b.0 -= b.0.clone());
 
 binops_impl!(Add, add, AddAssign, add_assign, +, +=);

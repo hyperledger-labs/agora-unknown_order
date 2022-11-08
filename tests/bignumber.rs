@@ -137,7 +137,7 @@ fn clone_negative() {
 }
 
 #[test]
-fn serialize() {
+fn serialize_str() {
     let n = b10(TEST_PRIMES[2]);
     let res = serde_json::to_string(&n);
     assert!(res.is_ok());
@@ -155,6 +155,25 @@ fn serialize() {
     assert_eq!(nn_res.unwrap(), n);
 
     assert!(serde_json::from_str::<BigNumber>(r#""-01""#).is_ok())
+}
+
+#[test]
+fn serialize_bytes() {
+    let n = b10(TEST_PRIMES[2]);
+    let res = bincode::serialize(&n);
+    assert!(res.is_ok());
+    let s = res.unwrap();
+    let nn_res = bincode::deserialize::<BigNumber>(&s);
+    assert!(nn_res.is_ok());
+    assert_eq!(nn_res.unwrap(), n);
+
+    let n = -BigNumber::from(1);
+    let res = bincode::serialize(&n);
+    assert!(res.is_ok());
+    let s = res.unwrap();
+    let nn_res = bincode::deserialize::<BigNumber>(&s);
+    assert!(nn_res.is_ok());
+    assert_eq!(nn_res.unwrap(), n);
 }
 
 #[test]

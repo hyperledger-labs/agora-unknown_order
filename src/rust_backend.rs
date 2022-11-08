@@ -11,10 +11,6 @@ use num_traits::{
     Num,
 };
 use rand::RngCore;
-use serde::{
-    de::{Error as DError, Unexpected, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
 use std::{
     cmp::{Eq, Ord, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
@@ -51,9 +47,12 @@ from_impl!(|d: i32| BigInt::from(d), i32);
 from_impl!(|d: i16| BigInt::from(d), i16);
 from_impl!(|d: i8| BigInt::from(d), i8);
 iter_impl!();
-serdes_impl!(|b: &Bn| b.0.to_str_radix(16), |s: &str| {
-    BigInt::from_str_radix(s, 16)
-});
+serdes_impl!(
+    |b: &Bn| b.0.to_str_radix(16),
+    |s: &str| { BigInt::from_str_radix(s, 16).ok() },
+    |b: &Bn| b.0.to_signed_bytes_be(),
+    |s: &[u8]| -> Option<BigInt> { Some(BigInt::from_signed_bytes_be(s)) }
+);
 zeroize_impl!(|b: &mut Bn| b.0.set_zero());
 binops_impl!(Add, add, AddAssign, add_assign, +, +=);
 binops_impl!(Sub, sub, SubAssign, sub_assign, -, -=);
