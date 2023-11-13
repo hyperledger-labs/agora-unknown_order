@@ -3,8 +3,8 @@
 #
 
 repository:
-  name: agora-glass_pumpkin
-  description: agora-glass_pumpkin
+  name: agora-unknown_order
+  description: agora-unknown_order
   homepage: https://wiki.hyperledger-labs.org/display/agora
   default_branch: main
   has_downloads: false
