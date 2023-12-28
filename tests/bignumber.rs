@@ -136,7 +136,6 @@ fn clone_negative() {
     assert_eq!(n, n.clone());
 }
 
-#[cfg(any(feature = "openssl", feature = "rust", feature = "gmp"))]
 #[test]
 fn serialize_str() {
     let n = b10(TEST_PRIMES[2]);
