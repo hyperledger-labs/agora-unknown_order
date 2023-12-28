@@ -13,6 +13,7 @@ use core::{
         Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Shl, ShlAssign, Shr,
         ShrAssign, Sub, SubAssign,
     },
+    str::FromStr,
 };
 use crypto_bigint::rand_core::CryptoRngCore;
 use crypto_bigint::{
@@ -71,6 +72,17 @@ impl Display for Sign {
                 _ => "",
             }
         )
+    }
+}
+
+impl FromStr for Sign {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "-" => Ok(Self::Minus),
+            _ => Ok(Self::Plus),
+        }
     }
 }
 
@@ -707,7 +719,11 @@ impl Serialize for Bn {
     where
         S: Serializer,
     {
-        (self.sign, &self.value).serialize(s)
+        if s.is_human_readable() {
+            alloc::format!("{}{:x}", self.sign, self.value).serialize(s)
+        } else {
+            (self.sign, &self.value).serialize(s)
+        }
     }
 }
 
@@ -716,8 +732,35 @@ impl<'de> Deserialize<'de> for Bn {
     where
         D: Deserializer<'de>,
     {
-        let (sign, value) = Deserialize::deserialize(d)?;
-        Ok(Bn { sign, value })
+        if d.is_human_readable() {
+            let s = alloc::string::String::deserialize(d)?;
+            if s.starts_with('-') {
+                let zero_padding = "0".repeat(1024 - (s.len() - 1));
+                let value = InnerRep::from_be_hex(&alloc::format!("{}{}", zero_padding, &s[1..]));
+                Ok(Bn {
+                    sign: Sign::Minus,
+                    value,
+                })
+            } else {
+                let zero_padding = if s.len() < 1024 {
+                    "0".repeat(1024 - s.len())
+                } else {
+                    alloc::string::String::new()
+                };
+                let value = InnerRep::from_be_hex(&alloc::format!("{}{}", zero_padding, &s[..]));
+                if value.is_zero().into() {
+                    Ok(Bn::zero())
+                } else {
+                    Ok(Bn {
+                        sign: Sign::Plus,
+                        value,
+                    })
+                }
+            }
+        } else {
+            let (sign, value) = Deserialize::deserialize(d)?;
+            Ok(Bn { sign, value })
+        }
     }
 }
 
