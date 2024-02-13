@@ -22,7 +22,7 @@ version = "0.8.0"
 
 [features]
 default = ["crypto"]
-crypto = ["crypto-bigint/serde", "crypto-bigint/default", "crypto-primes", "multibase", "num-traits"]
+crypto = ["crypto-bigint/serde", "crypto-bigint/default", "crypto-primes", "hex", "multibase", "num-traits"]
 gmp = ["hex", "rand/default", "rug/num-traits", "num-traits"]
 openssl = ["dep:openssl"]
 rust = ["glass_pumpkin", "num-bigint", "num-integer", "num-traits", "rand/default"]
