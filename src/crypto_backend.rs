@@ -26,6 +26,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use subtle::{Choice, ConstantTimeEq};
+use zeroize::Zeroize;
 
 type InnerRep = U4096;
 const INNER_LIMBS: usize = 512;
@@ -322,6 +323,36 @@ macro_rules! from_sint_impl {
                 }
             }
         )+
+    };
+}
+
+macro_rules! ops_impl {
+    (@ref $ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:tt, $opr_assign:tt, $($rhs:ty),+) => {$(
+        impl<'a> $ops<$rhs> for &'a Bn {
+            type Output = Bn;
+
+            fn $func(self, rhs: $rhs) -> Self::Output {
+                self $opr Bn::from(rhs)
+            }
+        }
+
+        impl $ops<$rhs> for Bn {
+            type Output = Bn;
+
+            fn $func(self, rhs: $rhs) -> Self::Output {
+                self $opr Bn::from(rhs)
+            }
+        }
+
+        impl $ops_assign<$rhs> for Bn {
+            fn $func_assign(&mut self, rhs: $rhs) {
+                *self = &*self $opr &Bn::from(rhs);
+            }
+        }
+    )*};
+    ($ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:tt, $opr_assign:tt) => {
+        ops_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, $opr_assign, u8, u16, u32, u64, usize);
+        ops_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, $opr_assign, i8, i16, i32, i64, isize);
     };
 }
 
@@ -669,6 +700,11 @@ macro_rules! shift_impl {
 
 shift_impl!(Shl, shl, ShlAssign, shl_assign, inner_shl);
 shift_impl!(Shr, shr, ShrAssign, shr_assign, inner_shr);
+ops_impl!(Add, add, AddAssign, add_assign, +, +=);
+ops_impl!(Sub, sub, SubAssign, sub_assign, -, -=);
+ops_impl!(Mul, mul, MulAssign, mul_assign, *, *=);
+ops_impl!(Div, div, DivAssign, div_assign, /, /=);
+ops_impl!(Rem, rem, RemAssign, rem_assign, %, %=);
 
 fn inner_shl<T: PrimInt>(lhs: &Bn, rhs: T) -> Bn {
     let v = lhs.value << rhs.to_usize().unwrap();
@@ -719,10 +755,11 @@ impl Serialize for Bn {
     where
         S: Serializer,
     {
+        let bytes = self.to_bytes();
         if s.is_human_readable() {
-            alloc::format!("{}{:x}", self.sign, self.value).serialize(s)
+            alloc::format!("{}{}", self.sign, hex::encode(bytes)).serialize(s)
         } else {
-            (self.sign, &self.value).serialize(s)
+            (self.sign, bytes).serialize(s)
         }
     }
 }
@@ -735,15 +772,15 @@ impl<'de> Deserialize<'de> for Bn {
         if d.is_human_readable() {
             let s = alloc::string::String::deserialize(d)?;
             if s.starts_with('-') {
-                let zero_padding = "0".repeat(1024 - (s.len() - 1));
+                let zero_padding = "0".repeat(INNER_LIMBS * 2 - (s.len() - 1));
                 let value = InnerRep::from_be_hex(&alloc::format!("{}{}", zero_padding, &s[1..]));
                 Ok(Bn {
                     sign: Sign::Minus,
                     value,
                 })
             } else {
-                let zero_padding = if s.len() < 1024 {
-                    "0".repeat(1024 - s.len())
+                let zero_padding = if s.len() < INNER_LIMBS * 2 {
+                    "0".repeat(INNER_LIMBS * 2 - s.len())
                 } else {
                     alloc::string::String::new()
                 };
@@ -758,9 +795,18 @@ impl<'de> Deserialize<'de> for Bn {
                 }
             }
         } else {
-            let (sign, value) = Deserialize::deserialize(d)?;
-            Ok(Bn { sign, value })
+            let (sign, value): (Sign, alloc::vec::Vec<u8>) = Deserialize::deserialize(d)?;
+            let mut bn = Bn::from_slice(&value);
+            bn.sign = sign;
+            Ok(bn)
         }
+    }
+}
+
+impl Zeroize for Bn {
+    fn zeroize(&mut self) {
+        self.sign = Sign::NoSign;
+        self.value.zeroize();
     }
 }
 
@@ -938,28 +984,18 @@ impl Bn {
         if self.is_zero() || n.is_zero() || n.is_one() {
             return None;
         }
-        if n.value.is_odd().into() {
-            let (i, exists) = self.value.inv_odd_mod(&n.value);
-            if exists.into() {
-                Some(Self {
-                    sign: self.sign,
-                    value: i,
-                })
-            } else {
-                None
-            }
+        let (i, exists) = if n.value.is_odd().into() {
+            self.value.inv_odd_mod(&n.value)
         } else {
-            let params = runtime_mod::DynResidueParams::new(&n.value);
-            let r = runtime_mod::DynResidue::new(&self.value, params);
-            let (r, valid) = r.invert();
-            if valid.into() {
-                Some(Self {
-                    sign: self.sign,
-                    value: r.retrieve(),
-                })
-            } else {
-                None
-            }
+            self.value.inv_mod(&n.value)
+        };
+        if exists.into() {
+            Some(Self {
+                sign: self.sign,
+                value: i,
+            })
+        } else {
+            None
         }
     }
 
@@ -1063,7 +1099,13 @@ impl Bn {
 
     /// Convert this big number to a big-endian byte sequence, the sign is not included
     pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
-        self.value.to_be_bytes().as_ref().to_vec()
+        let a = INNER_LIMBS * 8;
+        let b = self.value.leading_zeros();
+        let remainder = (a - b + 7) / 8;
+        let mut output = alloc::vec::Vec::with_capacity(remainder);
+        let bytes = self.value.to_be_bytes();
+        output.extend_from_slice(&bytes[INNER_LIMBS - remainder..]);
+        output
     }
 
     /// Convert this big number to a big-endian byte sequence and store it in `buffer`.
@@ -1216,5 +1258,14 @@ mod tests {
     fn primes() {
         let p1 = Bn::prime_from_rng(256, &mut rand_core::OsRng);
         assert!(p1.is_prime());
+    }
+
+    #[test]
+    fn bytes() {
+        let p1 = Bn::prime_from_rng(256, &mut rand_core::OsRng);
+        let bytes = p1.to_bytes();
+        assert_eq!(bytes.len(), 32);
+        let p2 = Bn::from_slice(&bytes);
+        assert_eq!(p1, p2);
     }
 }
