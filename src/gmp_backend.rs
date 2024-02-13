@@ -3,7 +3,6 @@
     SPDX-License-Identifier: Apache-2.0
 */
 use crate::{get_mod, GcdResult};
-use alloc::vec::Vec;
 use core::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Display},
@@ -256,7 +255,7 @@ impl Bn {
     }
 
     /// Convert this big number to a big-endian byte sequence
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
         self.0.to_digits::<u8>(rug::integer::Order::MsfBe)
     }
 
