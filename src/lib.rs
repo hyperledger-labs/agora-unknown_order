@@ -36,7 +36,6 @@
 #[macro_use]
 mod macros;
 
-#[cfg(feature = "alloc")]
 extern crate alloc;
 #[cfg(test)]
 #[macro_use]
