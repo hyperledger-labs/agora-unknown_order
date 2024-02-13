@@ -1062,7 +1062,6 @@ impl Bn {
     }
 
     /// Convert this big number to a big-endian byte sequence, the sign is not included
-    #[cfg(feature = "alloc")]
     pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
         self.value.to_be_bytes().as_ref().to_vec()
     }
