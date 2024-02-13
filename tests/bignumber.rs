@@ -202,7 +202,6 @@ fn gcd_ext() {
     assert_eq!(res.gcd, BigNumber::one());
 }
 
-#[cfg(feature = "alloc")]
 #[test]
 fn bytes() {
     let m = BigNumber::from(7);
