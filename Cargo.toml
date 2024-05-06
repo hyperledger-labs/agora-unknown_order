@@ -5,7 +5,7 @@ description = """A crate for working with finite fields where the modulus is of 
 typtical for RSA, Paillier, Hyperelliptic curves, etc.
 """
 documentation = "https://docs.rs/unknown_order"
-edition = "2018"
+edition = "2021"
 exclude = [
     "*.sh",
     ".git",
@@ -18,7 +18,7 @@ license = "Apache-2.0 OR MIT"
 name = "unknown_order"
 readme = "README.md"
 repository = "https://github.com/mikelodder7/unknown_order"
-version = "0.8.0"
+version = "0.9.0"
 
 [features]
 default = ["crypto"]
@@ -39,7 +39,7 @@ multibase = { version = "0.9", default-features = false, optional = true }
 num-bigint = { version = "0.4", optional = true }
 num-integer = { version = "0.1", optional = true }
 num-traits = { version = "0.2", optional = true }
-openssl = { version = "^0.10.63", optional = true }
+openssl = { version = "^0.10.64", optional = true }
 rand = { version = "0.8", default-features = false  }
 rug = { version = "1.24", default-features = false, features = ["integer", "rand", "std"], optional = true }
 serde = { version = "1.0", features = ["alloc", "serde_derive"] }
