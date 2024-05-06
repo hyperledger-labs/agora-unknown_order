@@ -18,7 +18,7 @@ use core::{
 use crypto_bigint::rand_core::CryptoRngCore;
 use crypto_bigint::{
     modular::runtime_mod, rand_core, CheckedAdd, CheckedMul, CheckedSub, Encoding, Integer,
-    NonZero, RandomMod, Uint, Zero,
+    NonZero, Random, RandomMod, Uint, Zero,
 };
 use num_traits::PrimInt;
 use serde::{
@@ -1268,6 +1268,11 @@ where
         Self::from_rng(n, &mut rand_core::OsRng)
     }
 
+    /// Generate a random value with `n` bits
+    pub fn random_bits(n: u32) -> Self {
+        Self::from_rng_bits(n, &mut rand_core::OsRng)
+    }
+
     /// Generate a random value less than `n` using the specific random number generator
     pub fn from_rng(n: &Self, rng: &mut impl CryptoRngCore) -> Self {
         if n.is_zero() {
@@ -1276,6 +1281,42 @@ where
         Self {
             sign: Sign::Plus,
             value: Uint::<LIMBS>::random_mod(rng, &NonZero::new(n.value).expect("divisor is zero")),
+        }
+    }
+
+    /// Generate a random value between [lower, upper)
+    pub fn random_range(lower: &Self, upper: &Self) -> Self {
+        Self::random_range_with_rng(lower, upper, &mut rand_core::OsRng)
+    }
+
+    /// Generate a random value between [lower, upper) using the specific random number generator
+    pub fn random_range_with_rng(lower: &Self, upper: &Self, rng: &mut impl CryptoRngCore) -> Self {
+        if lower >= upper {
+            panic!("lower bound is greater than or equal to upper bound");
+        }
+        let range = upper - lower;
+        lower + Self::from_rng(&range, rng)
+    }
+
+    /// Generate a random value with `n` bits using the specific random number generator
+    pub fn from_rng_bits(n: u32, rng: &mut impl CryptoRngCore) -> Self {
+        let n = n as usize;
+        if n > Uint::<LIMBS>::BITS {
+            panic!("n is too large");
+        }
+        if n < 1 {
+            return Self::zero();
+        }
+        let mut m = Uint::<LIMBS>::random(rng);
+        if n != Uint::<LIMBS>::BITS {
+            // clear bits above n
+            m &= (Uint::<LIMBS>::ONE << n).wrapping_sub(&Uint::<LIMBS>::ONE);
+        }
+
+        m |= Uint::<LIMBS>::ONE << (n - 1);
+        Self {
+            sign: Sign::Plus,
+            value: m,
         }
     }
 

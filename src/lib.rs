@@ -37,7 +37,7 @@
 mod macros;
 
 extern crate alloc;
-#[cfg(test)]
+#[cfg(any(test, feature = "openssl", feature = "gmp", feature = "rust"))]
 #[macro_use]
 extern crate std;
 
