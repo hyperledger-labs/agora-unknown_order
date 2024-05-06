@@ -18,7 +18,7 @@ use core::{
 use crypto_bigint::rand_core::CryptoRngCore;
 use crypto_bigint::{
     modular::runtime_mod, rand_core, CheckedAdd, CheckedMul, CheckedSub, Encoding, Integer,
-    NonZero, RandomMod, Zero, U4096,
+    NonZero, RandomMod, Uint, Zero,
 };
 use num_traits::PrimInt;
 use serde::{
@@ -28,13 +28,13 @@ use serde::{
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::Zeroize;
 
-type InnerRep = U4096;
-const INNER_LIMBS: usize = 512;
+/// The default big number type
+pub type DefaultBn = Bn<64>;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Sign {
     Minus,
-    NoSign,
+    None,
     Plus,
 }
 
@@ -45,7 +45,7 @@ impl Neg for Sign {
     fn neg(self) -> Self::Output {
         match self {
             Self::Minus => Self::Plus,
-            Self::NoSign => Self::NoSign,
+            Self::None => Self::None,
             Self::Plus => Self::Minus,
         }
     }
@@ -56,7 +56,7 @@ impl Mul for Sign {
 
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Sign::NoSign, _) | (_, Sign::NoSign) => Sign::NoSign,
+            (Sign::None, _) | (_, Sign::None) => Sign::None,
             (Sign::Plus, Sign::Plus) | (Sign::Minus, Sign::Minus) => Sign::Plus,
             (Sign::Plus, Sign::Minus) | (Sign::Minus, Sign::Plus) => Sign::Minus,
         }
@@ -95,15 +95,11 @@ impl Serialize for Sign {
         if s.is_human_readable() {
             match self {
                 Self::Minus => "-".serialize(s),
-                Self::NoSign => "00".serialize(s),
+                Self::None => "00".serialize(s),
                 Self::Plus => None::<&str>.serialize(s),
             }
         } else {
-            match self {
-                Self::Minus => (-1i8).serialize(s),
-                Self::NoSign => (0i8).serialize(s),
-                Self::Plus => (1i8).serialize(s),
-            }
+            i8::from(self).serialize(s)
         }
     }
 }
@@ -130,7 +126,7 @@ impl<'de> Deserialize<'de> for Sign {
                     if v.is_empty() {
                         Ok(Sign::Plus)
                     } else if v == "00" {
-                        Ok(Sign::NoSign)
+                        Ok(Sign::None)
                     } else if v == "-" {
                         Ok(Sign::Minus)
                     } else {
@@ -141,16 +137,45 @@ impl<'de> Deserialize<'de> for Sign {
             d.deserialize_str(SignStrVisitor)
         } else {
             let sign = i8::deserialize(d)?;
-            match sign {
-                -1i8 => Ok(Sign::Minus),
-                0i8 => Ok(Sign::NoSign),
-                1i8 => Ok(Sign::Plus),
-                _ => Err(de::Error::invalid_value(
-                    de::Unexpected::Signed(sign.into()),
-                    &"-1, 0, or 1",
-                )),
-            }
+            Self::try_from(sign).map_err(|_| {
+                de::Error::invalid_value(de::Unexpected::Signed(sign.into()), &"-1, 0, or 1")
+            })
         }
+    }
+}
+
+impl From<Sign> for i8 {
+    fn from(sign: Sign) -> i8 {
+        match sign {
+            Sign::Minus => -1,
+            Sign::None => 0,
+            Sign::Plus => 1,
+        }
+    }
+}
+
+impl From<&Sign> for i8 {
+    fn from(sign: &Sign) -> i8 {
+        i8::from(*sign)
+    }
+}
+
+impl TryFrom<i8> for Sign {
+    type Error = &'static str;
+
+    fn try_from(sign: i8) -> Result<Self, Self::Error> {
+        match sign {
+            -1 => Ok(Sign::Minus),
+            0 => Ok(Sign::None),
+            1 => Ok(Sign::Plus),
+            _ => Err("expected -1, 0, or 1"),
+        }
+    }
+}
+
+impl ConstantTimeEq for Sign {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        i8::from(self).ct_eq(&i8::from(other))
     }
 }
 
@@ -162,7 +187,7 @@ impl Sign {
 
     /// [`true`] if == NoSign
     pub fn is_zero(&self) -> bool {
-        self == &Self::NoSign
+        self == &Self::None
     }
 
     /// [`true`] if == Plus
@@ -172,12 +197,18 @@ impl Sign {
 }
 
 /// Big number that handle up to 4096-bits
-pub struct Bn {
+pub struct Bn<const LIMBS: usize>
+where
+    Uint<LIMBS>: Encoding,
+{
     pub(crate) sign: Sign,
-    pub(crate) value: InnerRep,
+    pub(crate) value: Uint<LIMBS>,
 }
 
-impl Clone for Bn {
+impl<const LIMBS: usize> Clone for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn clone(&self) -> Self {
         Self {
             sign: self.sign,
@@ -186,90 +217,123 @@ impl Clone for Bn {
     }
 }
 
-impl Default for Bn {
+impl<const LIMBS: usize> Default for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn default() -> Self {
         Self {
-            sign: Sign::NoSign,
-            value: InnerRep::default(),
+            sign: Sign::None,
+            value: Uint::<LIMBS>::ZERO,
         }
     }
 }
 
-impl Display for Bn {
+impl<const LIMBS: usize> Display for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // The default formatter leaves lots of zeros, so we trim them to help with readability
         let lz = self.value.leading_zeros() / 8;
-        let repr = multibase::encode(multibase::Base::Base10, &self.value.to_be_bytes()[lz..]);
+        let repr = multibase::encode(
+            multibase::Base::Base10,
+            &self.value.to_be_bytes().as_ref()[lz..],
+        );
         // The leading digit will be a '9' to indicate the encoding so drop it
         write!(f, "{}{}", self.sign, &repr[1..])
     }
 }
 
-impl Debug for Bn {
+impl<const LIMBS: usize> Debug for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}{:?}", self.sign, self.value)
     }
 }
 
-impl Binary for Bn {
+impl<const LIMBS: usize> Binary for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.sign)?;
         let bytes = self.value.to_be_bytes();
-        for b in &bytes {
+        for b in bytes.as_ref() {
             write!(f, "{:b}", b)?;
         }
         Ok(())
     }
 }
 
-impl Octal for Bn {
+impl<const LIMBS: usize> Octal for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.sign)?;
         let bytes = self.value.to_be_bytes();
-        for b in &bytes {
+        for b in bytes.as_ref() {
             write!(f, "{:o}", b)?;
         }
         Ok(())
     }
 }
 
-impl LowerHex for Bn {
+impl<const LIMBS: usize> LowerHex for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.sign)?;
         let bytes = self.value.to_be_bytes();
-        for b in &bytes {
+        for b in bytes.as_ref() {
             write!(f, "{:x}", b)?;
         }
         Ok(())
     }
 }
 
-impl UpperHex for Bn {
+impl<const LIMBS: usize> UpperHex for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.sign)?;
         let bytes = self.value.to_be_bytes();
-        for b in &bytes {
+        for b in bytes.as_ref() {
             write!(f, "{:X}", b)?;
         }
         Ok(())
     }
 }
 
-impl Eq for Bn {}
+impl<const LIMBS: usize> Eq for Bn<LIMBS> where Uint<LIMBS>: Encoding {}
 
-impl PartialEq for Bn {
+impl<const LIMBS: usize> PartialEq for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn eq(&self, other: &Self) -> bool {
         self.sign == other.sign && self.value == other.value
     }
 }
 
-impl PartialOrd for Bn {
+impl<const LIMBS: usize> PartialOrd for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Bn {
+impl<const LIMBS: usize> Ord for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         let scmp = self.sign.cmp(&other.sign);
         if scmp != Ordering::Equal {
@@ -277,14 +341,17 @@ impl Ord for Bn {
         }
 
         match self.sign {
-            Sign::NoSign => Ordering::Equal,
+            Sign::None => Ordering::Equal,
             Sign::Plus => self.value.cmp(&other.value),
             Sign::Minus => other.value.cmp(&self.value),
         }
     }
 }
 
-impl Hash for Bn {
+impl<const LIMBS: usize> Hash for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.sign.hash(state);
         self.value.hash(state);
@@ -294,11 +361,13 @@ impl Hash for Bn {
 macro_rules! from_uint_impl {
     ($($type:tt),+$(,)*) => {
         $(
-            impl From<$type> for Bn {
+            impl<const LIMBS: usize> From<$type> for Bn<LIMBS>
+                where Uint<LIMBS>: Encoding
+            {
                 fn from(value: $type) -> Self {
                     Self {
-                        sign: if value != 0 { Sign::Plus } else { Sign::NoSign },
-                        value: InnerRep::from(value)
+                        sign: if value != 0 { Sign::Plus } else { Sign::None },
+                        value: Uint::<LIMBS>::from(value)
                     }
                 }
             }
@@ -309,16 +378,18 @@ macro_rules! from_uint_impl {
 macro_rules! from_sint_impl {
     ($($stype:tt => $utype:tt),+$(,)*) => {
         $(
-            impl From<$stype> for Bn {
+            impl<const LIMBS: usize> From<$stype> for Bn<LIMBS>
+                where Uint<LIMBS>: Encoding
+            {
                 fn from(value: $stype) -> Self {
                     let (sign, value) = match 0.cmp(&value) {
                             Ordering::Greater => (Sign::Minus, (-value) as $utype),
-                            Ordering::Equal => (Sign::NoSign, 0 as $utype),
+                            Ordering::Equal => (Sign::None, 0 as $utype),
                             Ordering::Less => (Sign::Plus, value as $utype),
                     };
                     Self {
                         sign,
-                        value: InnerRep::from(value)
+                        value: Uint::<LIMBS>::from(value)
                     }
                 }
             }
@@ -328,25 +399,31 @@ macro_rules! from_sint_impl {
 
 macro_rules! ops_impl {
     (@ref $ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:tt, $opr_assign:tt, $($rhs:ty),+) => {$(
-        impl<'a> $ops<$rhs> for &'a Bn {
-            type Output = Bn;
+        impl<'a, const LIMBS: usize> $ops<$rhs> for &'a Bn<LIMBS>
+            where Uint<LIMBS>: Encoding
+        {
+            type Output = Bn<LIMBS>;
 
             fn $func(self, rhs: $rhs) -> Self::Output {
-                self $opr Bn::from(rhs)
+                self $opr Bn::<LIMBS>::from(rhs)
             }
         }
 
-        impl $ops<$rhs> for Bn {
-            type Output = Bn;
+        impl<const LIMBS: usize> $ops<$rhs> for Bn<LIMBS>
+            where Uint<LIMBS>: Encoding
+        {
+            type Output = Self;
 
             fn $func(self, rhs: $rhs) -> Self::Output {
-                self $opr Bn::from(rhs)
+                self $opr Self::from(rhs)
             }
         }
 
-        impl $ops_assign<$rhs> for Bn {
+        impl<const LIMBS: usize> $ops_assign<$rhs> for Bn<LIMBS>
+            where Uint<LIMBS>: Encoding,
+        {
             fn $func_assign(&mut self, rhs: $rhs) {
-                *self = &*self $opr &Bn::from(rhs);
+                *self = &*self $opr &Self::from(rhs);
             }
         }
     )*};
@@ -356,11 +433,14 @@ macro_rules! ops_impl {
     };
 }
 
-impl From<usize> for Bn {
+impl<const LIMBS: usize> From<usize> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn from(value: usize) -> Self {
         Self {
-            sign: if value == 0 { Sign::NoSign } else { Sign::Plus },
-            value: InnerRep::from(value as u64),
+            sign: if value == 0 { Sign::None } else { Sign::Plus },
+            value: Uint::<LIMBS>::from(value as u64),
         }
     }
 }
@@ -372,7 +452,10 @@ from_uint_impl!(u64, u32, u16, u8);
 from_sint_impl!(i128 => u128);
 from_sint_impl!(isize => u64, i64 => u64, i32 => u32, i16 => u16, i8 => u8);
 
-impl Neg for Bn {
+impl<const LIMBS: usize> Neg for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -383,8 +466,11 @@ impl Neg for Bn {
     }
 }
 
-impl Neg for &Bn {
-    type Output = Bn;
+impl<const LIMBS: usize> Neg for &Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
     fn neg(self) -> Self::Output {
         Bn {
@@ -394,13 +480,16 @@ impl Neg for &Bn {
     }
 }
 
-impl<'a, 'b> Add<&'a Bn> for &'b Bn {
-    type Output = Bn;
+impl<'a, 'b, const LIMBS: usize> Add<&'a Bn<LIMBS>> for &'b Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn add(self, rhs: &'a Bn) -> Self::Output {
+    fn add(self, rhs: &'a Bn<LIMBS>) -> Self::Output {
         match (self.sign, rhs.sign) {
-            (_, Sign::NoSign) => self.clone(),
-            (Sign::NoSign, _) => rhs.clone(),
+            (_, Sign::None) => self.clone(),
+            (Sign::None, _) => rhs.clone(),
             (Sign::Plus, Sign::Plus) | (Sign::Minus, Sign::Minus) => Bn {
                 sign: self.sign,
                 value: self.value.checked_add(&rhs.value).unwrap(),
@@ -422,23 +511,32 @@ impl<'a, 'b> Add<&'a Bn> for &'b Bn {
     }
 }
 
-impl Add<Bn> for &Bn {
-    type Output = Bn;
+impl<const LIMBS: usize> Add<Bn<LIMBS>> for &Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn add(self, rhs: Bn) -> Self::Output {
+    fn add(self, rhs: Bn<LIMBS>) -> Self::Output {
         self + &rhs
     }
 }
 
-impl Add<&Bn> for Bn {
+impl<const LIMBS: usize> Add<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
-    fn add(self, rhs: &Bn) -> Self::Output {
+    fn add(self, rhs: &Bn<LIMBS>) -> Self::Output {
         &self + rhs
     }
 }
 
-impl Add for Bn {
+impl<const LIMBS: usize> Add for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -446,27 +544,36 @@ impl Add for Bn {
     }
 }
 
-impl AddAssign for Bn {
+impl<const LIMBS: usize> AddAssign for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn add_assign(&mut self, rhs: Self) {
-        let n = mem::replace(self, Bn::zero());
+        let n = mem::replace(self, Bn::<LIMBS>::zero());
         *self = n + rhs;
     }
 }
 
-impl AddAssign<&Bn> for Bn {
-    fn add_assign(&mut self, rhs: &Bn) {
-        let n = mem::replace(self, Bn::zero());
+impl<const LIMBS: usize> AddAssign<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    fn add_assign(&mut self, rhs: &Bn<LIMBS>) {
+        let n = mem::replace(self, Bn::<LIMBS>::zero());
         *self = n + rhs;
     }
 }
 
-impl<'a, 'b> Sub<&'a Bn> for &'b Bn {
-    type Output = Bn;
+impl<'a, 'b, const LIMBS: usize> Sub<&'a Bn<LIMBS>> for &'b Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn sub(self, rhs: &'a Bn) -> Self::Output {
+    fn sub(self, rhs: &'a Bn<LIMBS>) -> Self::Output {
         match (self.sign, rhs.sign) {
-            (_, Sign::NoSign) => self.clone(),
-            (Sign::NoSign, _) => rhs.clone(),
+            (_, Sign::None) => self.clone(),
+            (Sign::None, _) => rhs.clone(),
             (Sign::Plus, Sign::Minus) | (Sign::Minus, Sign::Plus) => Bn {
                 sign: self.sign,
                 value: self.value.checked_add(&rhs.value).unwrap(),
@@ -488,23 +595,32 @@ impl<'a, 'b> Sub<&'a Bn> for &'b Bn {
     }
 }
 
-impl Sub<Bn> for &Bn {
-    type Output = Bn;
+impl<const LIMBS: usize> Sub<Bn<LIMBS>> for &Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn sub(self, rhs: Bn) -> Self::Output {
+    fn sub(self, rhs: Bn<LIMBS>) -> Self::Output {
         self - &rhs
     }
 }
 
-impl Sub<&Bn> for Bn {
+impl<const LIMBS: usize> Sub<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
-    fn sub(self, rhs: &Bn) -> Self::Output {
+    fn sub(self, rhs: &Bn<LIMBS>) -> Self::Output {
         &self - rhs
     }
 }
 
-impl Sub for Bn {
+impl<const LIMBS: usize> Sub for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -512,48 +628,66 @@ impl Sub for Bn {
     }
 }
 
-impl SubAssign for Bn {
+impl<const LIMBS: usize> SubAssign for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn sub_assign(&mut self, rhs: Self) {
-        let n = mem::replace(self, Bn::zero());
+        let n = mem::replace(self, Bn::<LIMBS>::zero());
         *self = n - rhs;
     }
 }
 
-impl SubAssign<&Bn> for Bn {
-    fn sub_assign(&mut self, rhs: &Bn) {
-        let n = mem::replace(self, Bn::zero());
+impl<const LIMBS: usize> SubAssign<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    fn sub_assign(&mut self, rhs: &Bn<LIMBS>) {
+        let n = mem::replace(self, Bn::<LIMBS>::zero());
         *self = n - rhs;
     }
 }
 
-impl<'a, 'b> Mul<&'a Bn> for &'b Bn {
-    type Output = Bn;
+impl<'a, 'b, const LIMBS: usize> Mul<&'a Bn<LIMBS>> for &'b Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn mul(self, rhs: &'a Bn) -> Self::Output {
+    fn mul(self, rhs: &'a Bn<LIMBS>) -> Self::Output {
         Bn {
             sign: self.sign * rhs.sign,
-            value: self.value.checked_mul(&rhs.value).unwrap(),
+            value: self.value.checked_mul(&rhs.value).expect("overflow"),
         }
     }
 }
 
-impl Mul<Bn> for &Bn {
-    type Output = Bn;
+impl<const LIMBS: usize> Mul<Bn<LIMBS>> for &Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn mul(self, rhs: Bn) -> Self::Output {
+    fn mul(self, rhs: Bn<LIMBS>) -> Self::Output {
         self * &rhs
     }
 }
 
-impl Mul<&Bn> for Bn {
+impl<const LIMBS: usize> Mul<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
-    fn mul(self, rhs: &Bn) -> Self::Output {
+    fn mul(self, rhs: &Bn<LIMBS>) -> Self::Output {
         &self * rhs
     }
 }
 
-impl Mul for Bn {
+impl<const LIMBS: usize> Mul for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -561,49 +695,67 @@ impl Mul for Bn {
     }
 }
 
-impl MulAssign<&Bn> for Bn {
-    fn mul_assign(&mut self, rhs: &Bn) {
+impl<const LIMBS: usize> MulAssign<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    fn mul_assign(&mut self, rhs: &Bn<LIMBS>) {
         self.value = self.value.saturating_mul(&rhs.value);
         if rhs.is_zero() || self.value.is_zero().into() {
-            self.sign = Sign::NoSign;
+            self.sign = Sign::None;
         } else {
             self.sign = self.sign * rhs.sign;
         }
     }
 }
 
-impl MulAssign for Bn {
+impl<const LIMBS: usize> MulAssign for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn mul_assign(&mut self, rhs: Self) {
         *self *= &rhs;
     }
 }
 
-impl<'a, 'b> Div<&'a Bn> for &'b Bn {
-    type Output = Bn;
+impl<'a, 'b, const LIMBS: usize> Div<&'a Bn<LIMBS>> for &'b Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn div(self, rhs: &'a Bn) -> Self::Output {
+    fn div(self, rhs: &'a Bn<LIMBS>) -> Self::Output {
         let (q, _) = self.div_rem(rhs);
         q
     }
 }
 
-impl Div<Bn> for &Bn {
-    type Output = Bn;
+impl<const LIMBS: usize> Div<Bn<LIMBS>> for &Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn div(self, rhs: Bn) -> Self::Output {
+    fn div(self, rhs: Bn<LIMBS>) -> Self::Output {
         self / &rhs
     }
 }
 
-impl Div<&Bn> for Bn {
+impl<const LIMBS: usize> Div<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
-    fn div(self, rhs: &Bn) -> Self::Output {
+    fn div(self, rhs: &Bn<LIMBS>) -> Self::Output {
         &self / rhs
     }
 }
 
-impl Div for Bn {
+impl<const LIMBS: usize> Div for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -611,44 +763,62 @@ impl Div for Bn {
     }
 }
 
-impl DivAssign<&Bn> for Bn {
-    fn div_assign(&mut self, rhs: &Bn) {
+impl<const LIMBS: usize> DivAssign<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    fn div_assign(&mut self, rhs: &Bn<LIMBS>) {
         *self = &*self / rhs;
     }
 }
 
-impl DivAssign for Bn {
+impl<const LIMBS: usize> DivAssign for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn div_assign(&mut self, rhs: Self) {
         *self = &*self / rhs;
     }
 }
 
-impl<'a, 'b> Rem<&'a Bn> for &'b Bn {
-    type Output = Bn;
+impl<'a, 'b, const LIMBS: usize> Rem<&'a Bn<LIMBS>> for &'b Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn rem(self, rhs: &'a Bn) -> Self::Output {
+    fn rem(self, rhs: &'a Bn<LIMBS>) -> Self::Output {
         let (_, r) = self.div_rem(rhs);
         r
     }
 }
 
-impl Rem<Bn> for &Bn {
-    type Output = Bn;
+impl<const LIMBS: usize> Rem<Bn<LIMBS>> for &Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    type Output = Bn<LIMBS>;
 
-    fn rem(self, rhs: Bn) -> Self::Output {
+    fn rem(self, rhs: Bn<LIMBS>) -> Self::Output {
         self % &rhs
     }
 }
 
-impl Rem<&Bn> for Bn {
+impl<const LIMBS: usize> Rem<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
-    fn rem(self, rhs: &Bn) -> Self::Output {
+    fn rem(self, rhs: &Bn<LIMBS>) -> Self::Output {
         &self % rhs
     }
 }
 
-impl Rem for Bn {
+impl<const LIMBS: usize> Rem for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     type Output = Self;
 
     fn rem(self, rhs: Self) -> Self::Output {
@@ -656,46 +826,58 @@ impl Rem for Bn {
     }
 }
 
-impl RemAssign<&Bn> for Bn {
-    fn rem_assign(&mut self, rhs: &Bn) {
+impl<const LIMBS: usize> RemAssign<&Bn<LIMBS>> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
+    fn rem_assign(&mut self, rhs: &Bn<LIMBS>) {
         *self = &*self % rhs;
     }
 }
 
-impl RemAssign for Bn {
+impl<const LIMBS: usize> RemAssign for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn rem_assign(&mut self, rhs: Self) {
         *self = &*self % &rhs;
     }
 }
 
 macro_rules! shift_impl {
-    (@ref $ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:expr, $($rhs:ty),+) => {$(
-        impl<'a> $ops<$rhs> for &'a Bn {
-            type Output = Bn;
+(@ref $ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:expr, $($rhs:ty),+) => {$(
+    impl<'a, const LIMBS: usize> $ops<$rhs> for &'a Bn<LIMBS>
+        where Uint<LIMBS>: Encoding
+    {
+        type Output = Bn<LIMBS>;
 
-            fn $func(self, rhs: $rhs) -> Self::Output {
-                $opr(&self, rhs)
-            }
+        fn $func(self, rhs: $rhs) -> Self::Output {
+            $opr(&self, rhs)
         }
+    }
 
-        impl $ops<$rhs> for Bn {
-            type Output = Bn;
+    impl<const LIMBS: usize> $ops<$rhs> for Bn<LIMBS>
+        where Uint<LIMBS>: Encoding
+    {
+        type Output = Self;
 
-            fn $func(self, rhs: $rhs) -> Self::Output {
-                $opr(&self, rhs)
-            }
+        fn $func(self, rhs: $rhs) -> Self::Output {
+            $opr(&self, rhs)
         }
+    }
 
-        impl $ops_assign<$rhs> for Bn {
-            fn $func_assign(&mut self, rhs: $rhs) {
-                *self = $opr(self, rhs);
-            }
+    impl<const LIMBS: usize> $ops_assign<$rhs> for Bn<LIMBS>
+        where Uint<LIMBS>: Encoding
+    {
+        fn $func_assign(&mut self, rhs: $rhs) {
+            *self = $opr(self, rhs);
         }
-    )*};
-    ($ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:expr) => {
-        shift_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, u8, u16, u32, u64, usize);
-        shift_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, i8, i16, i32, i64, isize);
-    };
+    }
+)*};
+($ops:ident, $func:ident, $ops_assign:ident, $func_assign:ident, $opr:expr) => {
+    shift_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, u8, u16, u32, u64, usize);
+    shift_impl!(@ref $ops, $func, $ops_assign, $func_assign, $opr, i8, i16, i32, i64, isize);
+};
 }
 
 shift_impl!(Shl, shl, ShlAssign, shl_assign, inner_shl);
@@ -706,7 +888,10 @@ ops_impl!(Mul, mul, MulAssign, mul_assign, *, *=);
 ops_impl!(Div, div, DivAssign, div_assign, /, /=);
 ops_impl!(Rem, rem, RemAssign, rem_assign, %, %=);
 
-fn inner_shl<T: PrimInt>(lhs: &Bn, rhs: T) -> Bn {
+fn inner_shl<T: PrimInt, const LIMBS: usize>(lhs: &Bn<LIMBS>, rhs: T) -> Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     let v = lhs.value << rhs.to_usize().unwrap();
     if v.is_zero().into() {
         Bn::zero()
@@ -721,7 +906,10 @@ fn inner_shl<T: PrimInt>(lhs: &Bn, rhs: T) -> Bn {
 /// Idea borrowed from [num-bigint](https://github.com/rust-num/num-bigint/blob/master/src/bigint/shift.rs#L100)
 /// Negative values need a rounding adjustment if there are any ones in the
 /// bits that get shifted out.
-fn shr_round_down<T: PrimInt>(n: &Bn, shift: T) -> bool {
+fn shr_round_down<T: PrimInt, const LIMBS: usize>(n: &Bn<LIMBS>, shift: T) -> bool
+where
+    Uint<LIMBS>: Encoding,
+{
     if n.sign.is_negative() {
         let zeros = n.value.trailing_zeros();
         shift > T::zero() && shift.to_usize().map(|shift| zeros < shift).unwrap_or(true)
@@ -730,11 +918,14 @@ fn shr_round_down<T: PrimInt>(n: &Bn, shift: T) -> bool {
     }
 }
 
-fn inner_shr<T: PrimInt>(lhs: &Bn, rhs: T) -> Bn {
+fn inner_shr<T: PrimInt, const LIMBS: usize>(lhs: &Bn<LIMBS>, rhs: T) -> Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     let round_down = shr_round_down(lhs, rhs);
     let value = lhs.value >> rhs.to_usize().unwrap();
     let value = if round_down {
-        value.saturating_add(&InnerRep::ONE)
+        value.saturating_add(&Uint::<LIMBS>::ONE)
     } else {
         value
     };
@@ -744,13 +935,19 @@ fn inner_shr<T: PrimInt>(lhs: &Bn, rhs: T) -> Bn {
     }
 }
 
-impl ConstantTimeEq for Bn {
+impl<const LIMBS: usize> ConstantTimeEq for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn ct_eq(&self, other: &Self) -> Choice {
-        self.value.ct_eq(&other.value)
+        self.sign.ct_eq(&other.sign) & self.value.ct_eq(&other.value)
     }
 }
 
-impl Serialize for Bn {
+impl<const LIMBS: usize> Serialize for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -764,31 +961,36 @@ impl Serialize for Bn {
     }
 }
 
-impl<'de> Deserialize<'de> for Bn {
+impl<'de, const LIMBS: usize> Deserialize<'de> for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         if d.is_human_readable() {
             let s = alloc::string::String::deserialize(d)?;
-            if s.starts_with('-') {
-                let zero_padding = "0".repeat(INNER_LIMBS * 2 - (s.len() - 1));
-                let value = InnerRep::from_be_hex(&alloc::format!("{}{}", zero_padding, &s[1..]));
-                Ok(Bn {
+            if let Some(stripped) = s.strip_prefix('-') {
+                let zero_padding = "0".repeat(Uint::<LIMBS>::BYTES * 2 - (s.len() - 1));
+                let value =
+                    Uint::<LIMBS>::from_be_hex(&alloc::format!("{}{}", zero_padding, stripped));
+                Ok(Self {
                     sign: Sign::Minus,
                     value,
                 })
             } else {
-                let zero_padding = if s.len() < INNER_LIMBS * 2 {
-                    "0".repeat(INNER_LIMBS * 2 - s.len())
+                let zero_padding = if s.len() < Uint::<LIMBS>::BYTES * 2 {
+                    "0".repeat(Uint::<LIMBS>::BYTES * 2 - s.len())
                 } else {
                     alloc::string::String::new()
                 };
-                let value = InnerRep::from_be_hex(&alloc::format!("{}{}", zero_padding, &s[..]));
+                let value =
+                    Uint::<LIMBS>::from_be_hex(&alloc::format!("{}{}", zero_padding, &s[..]));
                 if value.is_zero().into() {
-                    Ok(Bn::zero())
+                    Ok(Self::zero())
                 } else {
-                    Ok(Bn {
+                    Ok(Self {
                         sign: Sign::Plus,
                         value,
                     })
@@ -796,21 +998,27 @@ impl<'de> Deserialize<'de> for Bn {
             }
         } else {
             let (sign, value): (Sign, alloc::vec::Vec<u8>) = Deserialize::deserialize(d)?;
-            let mut bn = Bn::from_slice(&value);
+            let mut bn = Self::from_slice(value);
             bn.sign = sign;
             Ok(bn)
         }
     }
 }
 
-impl Zeroize for Bn {
+impl<const LIMBS: usize> Zeroize for Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     fn zeroize(&mut self) {
-        self.sign = Sign::NoSign;
+        self.sign = Sign::None;
         self.value.zeroize();
     }
 }
 
-impl Bn {
+impl<const LIMBS: usize> Bn<LIMBS>
+where
+    Uint<LIMBS>: Encoding,
+{
     /// Returns `(self ^ exponent) mod n`
     /// Note that this rounds down
     /// which makes a difference when given a negative `self` or `n`.
@@ -819,7 +1027,7 @@ impl Bn {
         assert_ne!(n.value.is_zero().unwrap_u8(), 1u8);
         let params = runtime_mod::DynResidueParams::new(&n.value);
         let mm = match exponent.sign {
-            Sign::NoSign => return Self::one(),
+            Sign::None => return Self::one(),
             Sign::Minus => match self.invert(n) {
                 None => return Self::zero(),
                 Some(a) => runtime_mod::DynResidue::new(&a.value, params),
@@ -837,7 +1045,7 @@ impl Bn {
         };
         Self {
             sign: if value.is_zero().into() {
-                Sign::NoSign
+                Sign::None
             } else {
                 sign
             },
@@ -848,10 +1056,10 @@ impl Bn {
     /// Compute (self + rhs) mod n
     pub fn modadd(&self, rhs: &Self, n: &Self) -> Self {
         match (self.sign, rhs.sign) {
-            (_, Sign::NoSign) => {
+            (_, Sign::None) => {
                 let mut bn = Self {
                     sign: self.sign,
-                    value: self.value.add_mod(&InnerRep::ZERO, &n.value),
+                    value: self.value.add_mod(&Uint::<LIMBS>::ZERO, &n.value),
                 };
                 if bn.sign.is_negative() {
                     bn.value = bn.value.saturating_add(&n.value);
@@ -860,10 +1068,10 @@ impl Bn {
                     bn
                 }
             }
-            (Sign::NoSign, _) => {
+            (Sign::None, _) => {
                 let mut bn = Self {
                     sign: rhs.sign,
-                    value: rhs.value.add_mod(&InnerRep::ZERO, &n.value),
+                    value: rhs.value.add_mod(&Uint::<LIMBS>::ZERO, &n.value),
                 };
                 if bn.sign.is_negative() {
                     bn.value = bn.value.saturating_add(&n.value);
@@ -918,13 +1126,13 @@ impl Bn {
 
         let result = l.mul(&r).retrieve();
         let sign = if result.is_zero().into() {
-            Sign::NoSign
+            Sign::None
         } else {
             self.sign * rhs.sign
         };
 
         match sign {
-            Sign::NoSign => Self::zero(),
+            Sign::None => Self::zero(),
             Sign::Plus => Self {
                 sign,
                 value: result,
@@ -1006,7 +1214,7 @@ impl Bn {
 
     /// self == 1
     pub fn is_one(&self) -> bool {
-        self.sign.is_positive() && self.value.ct_eq(&InnerRep::ONE).into()
+        self.sign.is_positive() && self.value.ct_eq(&Uint::<LIMBS>::ONE).into()
     }
 
     /// Return the bit length
@@ -1067,7 +1275,7 @@ impl Bn {
         }
         Self {
             sign: Sign::Plus,
-            value: InnerRep::random_mod(rng, &NonZero::new(n.value).unwrap()),
+            value: Uint::<LIMBS>::random_mod(rng, &NonZero::new(n.value).expect("divisor is zero")),
         }
     }
 
@@ -1085,12 +1293,12 @@ impl Bn {
         B: AsRef<[u8]>,
     {
         let b = b.as_ref();
-        if b.len() <= INNER_LIMBS {
-            let mut tmp = [0u8; INNER_LIMBS];
-            tmp[INNER_LIMBS - b.len()..].copy_from_slice(b);
+        if b.len() <= Uint::<LIMBS>::BYTES {
+            let mut tmp = alloc::vec![0u8; Uint::<LIMBS>::BYTES];
+            tmp[Uint::<LIMBS>::BYTES - b.len()..].copy_from_slice(b);
             Self {
                 sign: Sign::Plus,
-                value: InnerRep::from_be_slice(&tmp),
+                value: Uint::<LIMBS>::from_be_slice(&tmp),
             }
         } else {
             panic!("bytes are not the expected size");
@@ -1099,24 +1307,24 @@ impl Bn {
 
     /// Convert this big number to a big-endian byte sequence, the sign is not included
     pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
-        let a = INNER_LIMBS * 8;
+        let a = Uint::<LIMBS>::BITS;
         let b = self.value.leading_zeros();
         let remainder = (a - b + 7) / 8;
         let mut output = alloc::vec::Vec::with_capacity(remainder);
         let bytes = self.value.to_be_bytes();
-        output.extend_from_slice(&bytes[INNER_LIMBS - remainder..]);
+        output.extend_from_slice(&bytes.as_ref()[Uint::<LIMBS>::BYTES - remainder..]);
         output
     }
 
     /// Convert this big number to a big-endian byte sequence and store it in `buffer`.
     /// The sign is not included
     pub fn copy_bytes_into_buffer(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.value.to_be_bytes())
+        buffer.copy_from_slice(self.value.to_be_bytes().as_ref())
     }
 
     /// Compute the extended euclid algorithm and return the Bézout coefficients and GCD
     #[allow(clippy::many_single_char_names)]
-    pub fn extended_gcd(&self, other: &Self) -> GcdResult {
+    pub fn extended_gcd(&self, other: &Self) -> GcdResult<LIMBS> {
         let mut s = (Self::zero(), Self::one());
         let mut t = (Self::one(), Self::zero());
         let mut r = (other.clone(), self.clone());
@@ -1188,15 +1396,17 @@ impl Bn {
     pub fn one() -> Self {
         Self {
             sign: Sign::Plus,
-            value: InnerRep::ONE,
+            value: Uint::<LIMBS>::ONE,
         }
     }
 
     /// Simultaneous integer division and modulus
     pub fn div_rem(&self, other: &Self) -> (Self, Self) {
-        let (d, r) = self.value.div_rem(&NonZero::new(other.value).unwrap());
+        let (d, r) = self
+            .value
+            .div_rem(&NonZero::new(other.value).expect("divisor is zero"));
         let rem_sign = if r.is_zero().into() {
-            Sign::NoSign
+            Sign::None
         } else {
             Sign::Plus
         };
@@ -1241,11 +1451,11 @@ mod tests {
         let (_, v4) =
             multibase::decode("9229998991671040304545209035619811586840545198260").unwrap();
         let (_, v5) = multibase::decode("9217535165472977407178102302905245480306183692659917226463581384024497196271511427656856694277461").unwrap();
-        let bn1 = Bn::from_slice(v1.as_slice());
-        let bn2 = Bn::from_slice(v2.as_slice());
-        let bn3 = Bn::from_slice(v3.as_slice());
-        let bn4 = Bn::from_slice(v4.as_slice());
-        let bn5 = Bn::from_slice(v5.as_slice());
+        let bn1 = DefaultBn::from_slice(v1.as_slice());
+        let bn2 = DefaultBn::from_slice(v2.as_slice());
+        let bn3 = DefaultBn::from_slice(v3.as_slice());
+        let bn4 = DefaultBn::from_slice(v4.as_slice());
+        let bn5 = DefaultBn::from_slice(v5.as_slice());
         assert_eq!(&bn1 + &bn2, bn3);
         assert_eq!(&bn1 - &bn2, bn4);
         assert_eq!(&bn2 - &bn1, -bn4);
@@ -1256,16 +1466,16 @@ mod tests {
 
     #[test]
     fn primes() {
-        let p1 = Bn::prime_from_rng(256, &mut rand_core::OsRng);
+        let p1 = DefaultBn::prime_from_rng(256, &mut rand_core::OsRng);
         assert!(p1.is_prime());
     }
 
     #[test]
     fn bytes() {
-        let p1 = Bn::prime_from_rng(256, &mut rand_core::OsRng);
+        let p1 = DefaultBn::prime_from_rng(256, &mut rand_core::OsRng);
         let bytes = p1.to_bytes();
         assert_eq!(bytes.len(), 32);
-        let p2 = Bn::from_slice(&bytes);
+        let p2 = DefaultBn::from_slice(&bytes);
         assert_eq!(p1, p2);
     }
 }

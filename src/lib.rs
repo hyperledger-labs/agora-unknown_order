@@ -90,7 +90,7 @@ use rust_backend as b;
 mod gcd_result;
 mod group;
 
-#[cfg(any(feature = "rust", feature = "gmp", feature = "crypto"))]
+#[cfg(any(feature = "rust", feature = "gmp"))]
 pub(crate) fn get_mod(n: &BigNumber) -> BigNumber {
     if n < &BigNumber::zero() {
         -n.clone()
@@ -99,6 +99,22 @@ pub(crate) fn get_mod(n: &BigNumber) -> BigNumber {
     }
 }
 
+#[cfg(feature = "crypto")]
+pub(crate) fn get_mod<const LIMBS: usize>(n: &SizedBigNumber<LIMBS>) -> SizedBigNumber<LIMBS>
+where
+    crypto_bigint::Uint<LIMBS>: crypto_bigint::Encoding,
+{
+    if n < &SizedBigNumber::zero() {
+        -n.clone()
+    } else {
+        n.clone()
+    }
+}
+
+#[cfg(any(feature = "rust", feature = "gmp", feature = "openssl"))]
 pub use b::Bn as BigNumber;
+
+#[cfg(feature = "crypto")]
+pub use b::{Bn as SizedBigNumber, DefaultBn as BigNumber};
 pub use gcd_result::*;
 pub use group::*;
