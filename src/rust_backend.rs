@@ -245,6 +245,11 @@ impl Bn {
         Self::from_rng(n, &mut rng)
     }
 
+    /// Generate a random value with `n` bits
+    pub fn random_bits(n: u32) -> Self {
+        Self::from_rng_bits(n, &mut rand::thread_rng())
+    }
+
     /// Generate a random value less than `n` using the specific random number generator
     pub fn from_rng(n: &Self, rng: &mut impl RngCore) -> Self {
         let bits = n.0.bits() as usize;
@@ -261,6 +266,29 @@ impl Bn {
                 return Self(b);
             }
         }
+    }
+
+    /// Generate a random value between [lower, upper)
+    pub fn random_range(lower: &Self, upper: &Self) -> Self {
+        Self::random_range_with_rng(lower, upper, &mut rand::rngs::OsRng)
+    }
+
+    /// Generate a random value between [lower, upper) using the specific random number generator
+    pub fn random_range_with_rng(lower: &Self, upper: &Self, rng: &mut impl RngCore) -> Self {
+        if lower >= upper {
+            panic!("lower bound is greater than or equal to upper bound");
+        }
+        let range = upper - lower;
+        lower + Self::from_rng(&range, rng)
+    }
+
+    /// Generate a random value with `n` bits using the specific random number generator
+    pub fn from_rng_bits(n: u32, rng: &mut impl RngCore) -> Self {
+        let n = n as usize;
+        let mut t = vec![0u8; (n + 7) / 8];
+        rng.fill_bytes(&mut t);
+        let b = BigInt::from_bytes_be(Sign::Plus, &t);
+        Self(b | Self::one() << n)
     }
 
     /// Hash a byte sequence to a big number

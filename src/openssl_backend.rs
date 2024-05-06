@@ -360,10 +360,47 @@ impl Bn {
         Self(b)
     }
 
+    /// Generate a random value with `n` bits
+    pub fn random_bits(n: u32) -> Self {
+        Self::from_rng_bits(n, &mut rand::rngs::OsRng)
+    }
+
     /// Generate a random value less than `n` using the specific random number generator
-    pub fn from_rng(n: &Self, _rng: &mut impl RngCore) -> Self {
-        // OpenSSL doesn't support supplying random number generators
-        Self::random(n)
+    pub fn from_rng(n: &Self, rng: &mut impl RngCore) -> Self {
+        let count = n.0.num_bytes() as usize;
+        let mut bytes = vec![0u8; count];
+        rng.fill_bytes(&mut bytes);
+        Self::from_slice(&bytes) % n
+    }
+
+    /// Generate a random value between [lower, upper)
+    pub fn random_range(lower: &Self, upper: &Self) -> Self {
+        if lower >= upper {
+            panic!("lower bound is greater than or equal to upper bound");
+        }
+        let mut range = BigNum::new().unwrap();
+        BigNumRef::checked_sub(&mut range, &lower.0, &upper.0).unwrap();
+        let mut r = Self::random(&Self(range));
+        r += lower;
+        r
+    }
+
+    /// Generate a random value between [lower, upper) using the specific random number generator
+    pub fn random_range_with_rng(lower: &Self, upper: &Self, rng: &mut impl RngCore) -> Self {
+        if lower >= upper {
+            panic!("lower bound is greater than or equal to upper bound");
+        }
+        let range = upper - lower;
+        lower + Self::from_rng(&range, rng)
+    }
+
+    /// Generate a random value with `n` bits using the specific random number generator
+    pub fn from_rng_bits(n: u32, rng: &mut impl RngCore) -> Self {
+        let mut t = vec![0u8; (n as usize + 7) / 8];
+        rng.fill_bytes(&mut t);
+        let mut r = Self::from_slice(&t);
+        r.0.set_bit(n as i32).unwrap();
+        r
     }
 
     /// Hash a byte sequence to a big number
