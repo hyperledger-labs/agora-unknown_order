@@ -255,7 +255,7 @@ impl Bn {
         let bits = n.0.bits() as usize;
         let len_bytes = (bits - 1) / 8 + 1;
         let high_bits = len_bytes * 8 - bits;
-        let mut t = vec![0u8; len_bytes as usize];
+        let mut t = vec![0u8; len_bytes];
         loop {
             rng.fill_bytes(&mut t);
             if high_bits > 0 {

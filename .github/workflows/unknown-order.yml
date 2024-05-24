@@ -1,0 +1,41 @@
+name: unknown-order
+
+on:
+  pull_request:
+    paths-ignore:
+      - *.md
+      - *.sh
+      - LICENSE*
+  push:
+    branches: main
+    paths-ignore:
+      - *.md
+      - *.sh
+      - LICENSE*
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - run: cargo build --no-default-features --features=rust
+      - run: cargo build --no-default-features --features=crypto
+      - run: cargo build --no-default-features --features=openssl
+      - run: cargo build --no-default-features --features=gmp
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
+      - run: cargo fmt --all -- --check
