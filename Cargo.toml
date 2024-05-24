@@ -18,7 +18,7 @@ license = "Apache-2.0 OR MIT"
 name = "unknown_order"
 readme = "README.md"
 repository = "https://github.com/mikelodder7/unknown_order"
-version = "0.9.0"
+version = "0.10.0"
 
 [features]
 default = ["crypto"]
@@ -33,7 +33,7 @@ crypto-bigint = { version = "0.5", features = ["zeroize"], optional = true }
 crypto-primes = { version = "0.5", optional = true }
 digest = "0.10"
 getrandom = { version = "0.2", features = ["js"], optional = true }
-glass_pumpkin = { version = "1.6", optional = true }
+glass_pumpkin = { version = "1.7", optional = true }
 hex = { version = "0.4", optional = true }
 multibase = { version = "0.9", default-features = false, optional = true }
 num-bigint = { version = "0.4", optional = true }

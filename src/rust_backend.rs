@@ -288,7 +288,7 @@ impl Bn {
         let mut t = vec![0u8; (n + 7) / 8];
         rng.fill_bytes(&mut t);
         let b = BigInt::from_bytes_be(Sign::Plus, &t);
-        Self(b | Self::one() << n)
+        Self(&b | BigInt::one() << n)
     }
 
     /// Hash a byte sequence to a big number
