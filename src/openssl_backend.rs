@@ -379,7 +379,7 @@ impl Bn {
             panic!("lower bound is greater than or equal to upper bound");
         }
         let mut range = BigNum::new().unwrap();
-        BigNumRef::checked_sub(&mut range, &lower.0, &upper.0).unwrap();
+        BigNumRef::checked_sub(&mut range, &upper.0, &lower.0).unwrap();
         let mut r = Self::random(&Self(range));
         r += lower;
         r
